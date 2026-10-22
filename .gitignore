@@ -1,0 +1,17 @@
+.venv/
+venv/
+
+__pycache__/
+*.py[cod]
+*$py.class
+
+build/
+dist/
+*.spec
+
+data/
+
+*.zip
+
+*.log
+.env
