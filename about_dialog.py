@@ -52,6 +52,7 @@ CONTACTS_TEXT = """
 <ul>
 <li><b>Сайт проекта:</b> <a href="https://maxsosiv.github.io/AssistPiip/">maxsosiv.github.io/AssistPiip</a></li>
 <li><b>GitHub:</b> <a href="https://github.com/MaxsoSiv/AssistPiip/">github.com/MaxsoSiv/AssistPiip</a></li>
+<li><b>Электронная почта:</b> <a href="mailto:assistpiip@gmail.com">assistpiip@gmail.com</a></li>
 </ul>
 
 <p>Мы всегда рады обратной связи и стараемся отвечать на все конструктивные сообщения.</p>
