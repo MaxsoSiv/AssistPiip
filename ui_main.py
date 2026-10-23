@@ -3,6 +3,9 @@ import logging
 import shiboken6
 import random
 import base64
+import subprocess
+import re
+import requests
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLineEdit,
     QPushButton, QLabel, QStackedWidget, QListWidget, QListWidgetItem,
@@ -21,6 +24,7 @@ from fuzzy_matcher import FuzzyMatcher
 from floating_widget import FloatingCircle
 from utils import open_path, open_url, set_always_on_top, get_app_dir
 from calculator import CalculatorPage
+from monitor_page import MonitorPage
 from jarvis_bg import JarvisBackground
 from about_dialog import AboutDialog
 from theme import THEMES
@@ -33,7 +37,8 @@ PAGE_COMMANDS = 2
 PAGE_NOTES = 3
 PAGE_CLIPBOARD = 4
 PAGE_CALCULATOR = 5
-PAGE_COUNT = 6
+PAGE_MONITOR = 6
+PAGE_COUNT = 7
 
 
 class MainWindow(QMainWindow):
@@ -50,7 +55,7 @@ class MainWindow(QMainWindow):
 
         base = get_app_dir()
         self._icons = {}
-        for name in ["main", "settings", "calculator", "notes", "commands", "clipboard",
+        for name in ["main", "settings", "calculator", "notes", "commands", "clipboard", "monitor",
                      "collapse", "exit", "pin_on", "pin_off", "minimize", "maximize", "close"]:
             path = os.path.join(base, "icons", f"{name}.png")
             if os.path.exists(path):
@@ -77,7 +82,7 @@ class MainWindow(QMainWindow):
         self._pages_created = set()
         self._page_widgets = {}
         self._placeholders = {}
-        self._heavy_pages = {PAGE_SETTINGS, PAGE_COMMANDS, PAGE_NOTES, PAGE_CLIPBOARD, PAGE_CALCULATOR}
+        self._heavy_pages = {PAGE_SETTINGS, PAGE_COMMANDS, PAGE_NOTES, PAGE_CLIPBOARD, PAGE_CALCULATOR, PAGE_MONITOR}
 
         self._build_ui()
         self._connect_signals()
@@ -226,6 +231,7 @@ class MainWindow(QMainWindow):
             ("Заметки", "notes", PAGE_NOTES),
             ("Команды", "commands", PAGE_COMMANDS),
             ("Буфер обмена", "clipboard", PAGE_CLIPBOARD),
+            ("Монитор", "monitor", PAGE_MONITOR),
         ]
 
         self._nav_buttons = []
@@ -332,7 +338,9 @@ class MainWindow(QMainWindow):
             label_map = {
                 "__minimize__": "Свернуть",
                 "__exit__": "Выход",
-                "__help__": "Помощь"
+                "__help__": "Помощь",
+                "айпи": "Айпи",
+                "пинг": "Пинг"
             }
             display_text = label_map.get(trigger, trigger)
 
@@ -384,6 +392,8 @@ class MainWindow(QMainWindow):
         builtins = [
             ("Браузер", "браузер"),
             ("Проводник", "проводник"),
+            ("Айпи", "айпи"),
+            ("Пинг", "пинг"),
             ("Свернуть", "__minimize__"),
             ("Выход", "__exit__"),
             ("Помощь", "__help__"),
@@ -646,6 +656,15 @@ class MainWindow(QMainWindow):
         layout.addWidget(calc)
         return page
 
+    def _create_monitor_page(self) -> QWidget:
+        page = QWidget()
+        page.setObjectName("pageContainer")
+        layout = QVBoxLayout(page)
+        layout.setContentsMargins(0, 0, 0, 0)
+        monitor = MonitorPage()
+        layout.addWidget(monitor)
+        return page
+
     def _ensure_page(self, index: int) -> QWidget:
         if index in self._pages_created:
             return self._page_widgets[index]
@@ -661,6 +680,8 @@ class MainWindow(QMainWindow):
             widget = self._create_clipboard_page()
         elif index == PAGE_CALCULATOR:
             widget = self._create_calculator_page()
+        elif index == PAGE_MONITOR:
+            widget = self._create_monitor_page()
         else:
             return None
         ph = self._placeholders[index]
@@ -812,7 +833,7 @@ class MainWindow(QMainWindow):
 
         builtin = self._match_builtin(text)
         if builtin:
-            self._run_builtin(builtin)
+            self._run_builtin(builtin, text)
             return
 
         candidates = self._all_command_strings()
@@ -833,7 +854,11 @@ class MainWindow(QMainWindow):
         for cmd in self.command_manager.all_commands():
             result.append(cmd.trigger)
             result.extend(cmd.aliases)
-        result.extend(["браузер", "browser", "проводник", "explorer", "свернуть", "выход", "помощь"])
+        result.extend([
+            "браузер", "browser", "проводник", "explorer",
+            "свернуть", "выход", "помощь",
+            "айпи", "ip", "пинг", "ping"
+        ])
         return result
 
     def _match_builtin(self, text: str) -> str | None:
@@ -848,11 +873,55 @@ class MainWindow(QMainWindow):
         for key, aliases in builtins.items():
             if normalized in aliases:
                 return key
+
+        if normalized.startswith(("айпи", "ip", "ай пи", "ай-пи")):
+            return "ip"
+        if normalized.startswith(("пинг", "ping")):
+            return "ping"
+
         return None
 
-    def _run_builtin(self, key: str):
+    def _run_builtin(self, key: str, raw_text: str):
         logging.info(f"Выполнение встроенной команды: {key}")
-        if key == "браузер":
+
+        if key == "ip":
+            self._log_chat("assistant", "Получаю IP-адрес...")
+            try:
+                ip = requests.get("https://api.ipify.org", timeout=5).text
+                self._log_chat("assistant", f"Ваш внешний IP: <b>{ip}</b>")
+            except requests.RequestException:
+                self._log_chat("assistant", "Не удалось получить IP. Проверьте подключение к интернету.")
+
+        elif key == "ping":
+            parts = raw_text.split()
+            host = parts[1] if len(parts) > 1 else "8.8.8.8"
+
+            self._log_chat("assistant", f"Пингую {host}...")
+            try:
+                result = subprocess.run(
+                    ["ping", "-n", "4", host],
+                    capture_output=True, text=True, encoding="cp866", timeout=5
+                )
+                output = result.stdout
+
+                if "100% потерь" in output or "100% loss" in output or "не найден" in output:
+                    self._log_chat("assistant", f"Узел {host} недоступен (100% потерь).")
+                else:
+                    times = re.findall(r"([0-9]+)(?:ms|мс)", output)
+                    if times:
+                        times = [int(t) for t in times]
+                        avg = sum(times) // len(times)
+                        mn = min(times)
+                        mx = max(times)
+                        self._log_chat("assistant", f"Пинг {host}:<br>Мин: {mn}ms, Сред: {avg}ms, Макс: {mx}ms")
+                    else:
+                        self._log_chat("assistant", f"Пинг {host} завершен, но не удалось распарсить время.<br><pre>{output}</pre>")
+            except subprocess.TimeoutExpired:
+                self._log_chat("assistant", f"Превышено время ожидания ответа от {host}.")
+            except Exception as e:
+                self._log_chat("assistant", f"Ошибка выполнения пинга: {e}")
+
+        elif key == "браузер":
             open_url("https://www.google.com", self.settings.browser_path)
             self._log_chat("assistant", "Открываю браузер")
         elif key == "проводник":
@@ -869,7 +938,7 @@ class MainWindow(QMainWindow):
         QMessageBox.information(
             self, "Помощь",
             "Введите команду в поле ввода.\n"
-            "Доступны: браузер, проводник, свернуть, выход, помощь.\n"
+            "Доступны: браузер, проводник, свернуть, выход, помощь, айпи, пинг.\n"
             "Также можно создавать свои команды во вкладке «Команды»."
         )
 

@@ -58,15 +58,23 @@ def _create_icon_set(output_dir):
 
     img = Image.new("RGBA", (s, s), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
-    _draw_line_icon(d, [(4, 12), (10, 12)], color=c)
-    _draw_line_icon(d, [(7, 9), (10, 12), (7, 15)], color=c)
+    d.line([(4, 12), (12, 4), (20, 12)], fill=c, width=2, joint="curve")
+    d.line([(6, 10), (6, 20), (18, 20), (18, 10)], fill=c, width=2, joint="curve")
+    d.line([(10, 20), (10, 16), (14, 16), (14, 20)], fill=c, width=2, joint="curve")
     icons["main"] = img
 
     img = Image.new("RGBA", (s, s), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
-    d.ellipse([7, 4, 17, 14], outline=c, width=2)
-    d.line([12, 14, 12, 20], fill=c, width=2)
-    d.line([7, 20, 17, 20], fill=c, width=2)
+    d.ellipse([7, 7, 17, 17], outline=c, width=2)
+    d.ellipse([10, 10, 14, 14], outline=c, width=2)
+    d.line([12, 4, 12, 7], fill=c, width=2)
+    d.line([12, 17, 12, 20], fill=c, width=2)
+    d.line([4, 12, 7, 12], fill=c, width=2)
+    d.line([17, 12, 20, 12], fill=c, width=2)
+    d.line([6, 6, 8, 8], fill=c, width=2)
+    d.line([16, 16, 18, 18], fill=c, width=2)
+    d.line([6, 18, 8, 16], fill=c, width=2)
+    d.line([16, 8, 18, 6], fill=c, width=2)
     icons["settings"] = img
 
     img = Image.new("RGBA", (s, s), (0, 0, 0, 0))
@@ -100,6 +108,14 @@ def _create_icon_set(output_dir):
 
     img = Image.new("RGBA", (s, s), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
+    d.rounded_rectangle([3, 4, 21, 17], outline=c, width=2, radius=2)
+    d.line([12, 17, 12, 20], fill=c, width=2)
+    d.line([8, 20, 16, 20], fill=c, width=2)
+    d.line([5, 11, 8, 11, 10, 7, 14, 15, 16, 11, 19, 11], fill=c, width=2, joint="curve")
+    icons["monitor"] = img
+
+    img = Image.new("RGBA", (s, s), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
     d.arc([8, 4, 16, 20], 0, 180, fill=c, width=2)
     d.line([8, 12, 8, 20], fill=c, width=2)
     d.line([16, 12, 16, 20], fill=c, width=2)
@@ -113,14 +129,15 @@ def _create_icon_set(output_dir):
 
     img = Image.new("RGBA", (s, s), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
-    d.polygon([(12, 16), (6, 10), (18, 10)], fill=c)
-    d.line([6, 7, 18, 7], fill=c, width=2)
+    d.ellipse([8, 4, 16, 12], outline=c, width=2)
+    d.line([12, 12, 12, 20], fill=c, width=2)
+    d.line([8, 16, 16, 16], fill=c, width=2)
     icons["pin_on"] = img
 
     img = Image.new("RGBA", (s, s), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
-    d.polygon([(12, 8), (6, 14), (18, 14)], fill=c)
-    d.line([6, 17, 18, 17], fill=c, width=2)
+    d.ellipse([8, 4, 16, 12], outline=c, width=2)
+    d.line([12, 12, 12, 20], fill=c, width=2)
     icons["pin_off"] = img
 
     img = Image.new("RGBA", (s, s), (0, 0, 0, 0))
@@ -138,6 +155,12 @@ def _create_icon_set(output_dir):
     d.line([7, 7, 17, 17], fill=c, width=2)
     d.line([17, 7, 7, 17], fill=c, width=2)
     icons["close"] = img
+
+    img = Image.new("RGBA", (s, s), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    d.text((4, 6), "A", fill=c, font=ImageFont.load_default())
+    d.text((12, 6), "文", fill=c, font=ImageFont.load_default())
+    icons["translate"] = img
 
     for name, image in icons.items():
         image.save(os.path.join(output_dir, f"{name}.png"))

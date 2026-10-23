@@ -101,7 +101,7 @@ class SettingsManager(QObject):
     def quick_commands(self) -> list[str]:
         val = self.get("quick_commands", None)
         if val is None:
-            return ["браузер", "проводник", "__minimize__", "__exit__", "__help__"]
+            return ["браузер", "проводник", "айпи", "пинг", "__minimize__", "__exit__", "__help__"]
         if isinstance(val, str):
             return [val] if val else []
         return list(val)
