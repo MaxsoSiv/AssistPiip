@@ -1,5 +1,6 @@
 import json
 import os
+import logging
 from datetime import datetime
 from PySide6.QtCore import QObject, Signal
 
@@ -30,20 +31,29 @@ class ChatManager(QObject):
         self._load()
 
     def _load(self):
-        if os.path.exists(self._file):
-            try:
-                with open(self._file, "r", encoding="utf-8") as f:
-                    raw = json.load(f)
-                self._messages = [ChatMessage.from_dict(item) for item in raw]
-            except Exception:
-                self._messages = []
+        if not os.path.exists(self._file):
+            return
+        try:
+            with open(self._file, "r", encoding="utf-8") as f:
+                raw = json.load(f)
+            self._messages = [ChatMessage.from_dict(item) for item in raw]
+        except (json.JSONDecodeError, KeyError, TypeError) as e:
+            logging.error(f"Файл chat_history.json поврежден, история чата будет пуста: {e}")
+            self._messages = []
+        except OSError as e:
+            logging.error(f"Ошибка чтения истории чата: {e}")
+            self._messages = []
 
     def _save(self):
-        os.makedirs(os.path.dirname(self._file), exist_ok=True)
         trimmed = self._messages[-self._limit:]
         self._messages = trimmed
-        with open(self._file, "w", encoding="utf-8") as f:
-            json.dump([m.to_dict() for m in trimmed], f, ensure_ascii=False, indent=2)
+        try:
+            os.makedirs(os.path.dirname(self._file), exist_ok=True)
+            with open(self._file, "w", encoding="utf-8") as f:
+                json.dump([m.to_dict() for m in trimmed], f, ensure_ascii=False, indent=2)
+        except OSError as e:
+            logging.error(f"Ошибка сохранения истории чата: {e}")
+            return
         self.messages_changed.emit()
 
     def add_message(self, role: str, text: str):

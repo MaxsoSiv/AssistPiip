@@ -2,6 +2,7 @@ import json
 import os
 import uuid
 import hashlib
+import logging
 from datetime import datetime
 from PySide6.QtCore import QObject, Signal, QTimer, QBuffer, QIODevice
 from PySide6.QtGui import QGuiApplication, QImage
@@ -44,17 +45,26 @@ class ClipboardManager(QObject):
         self._clipboard.dataChanged.connect(self._on_clipboard_changed)
 
     def _load(self):
-        if os.path.exists(self._file):
-            try:
-                with open(self._file, "r", encoding="utf-8") as f:
-                    raw = json.load(f)
-                self._entries = [ClipboardEntry.from_dict(item) for item in raw]
-            except Exception:
-                self._entries = []
+        if not os.path.exists(self._file):
+            return
+        try:
+            with open(self._file, "r", encoding="utf-8") as f:
+                raw = json.load(f)
+            self._entries = [ClipboardEntry.from_dict(item) for item in raw]
+        except (json.JSONDecodeError, KeyError, TypeError) as e:
+            logging.error(f"Файл clipboard.json поврежден, история буфера будет пуста: {e}")
+            self._entries = []
+        except OSError as e:
+            logging.error(f"Ошибка чтения истории буфера обмена: {e}")
+            self._entries = []
 
     def _save(self):
-        with open(self._file, "w", encoding="utf-8") as f:
-            json.dump([e.to_dict() for e in self._entries], f, ensure_ascii=False, indent=2)
+        try:
+            with open(self._file, "w", encoding="utf-8") as f:
+                json.dump([e.to_dict() for e in self._entries], f, ensure_ascii=False, indent=2)
+        except OSError as e:
+            logging.error(f"Ошибка сохранения истории буфера обмена: {e}")
+            return
         self.clipboard_changed.emit()
 
     def _trim(self):
