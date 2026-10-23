@@ -1,5 +1,6 @@
 import json
 import os
+import logging
 from PySide6.QtCore import QObject, Signal, QTimer
 
 
@@ -41,19 +42,28 @@ class CommandManager(QObject):
         self._load()
 
     def _load(self):
-        if os.path.exists(self._file):
-            try:
-                with open(self._file, "r", encoding="utf-8") as f:
-                    raw = json.load(f)
-                self._commands = [Command.from_dict(item) for item in raw]
-            except Exception:
-                self._commands = []
+        if not os.path.exists(self._file):
+            return
+            
+        try:
+            with open(self._file, "r", encoding="utf-8") as f:
+                raw = json.load(f)
+            self._commands = [Command.from_dict(item) for item in raw]
+        except json.JSONDecodeError:
+            logging.error("Файл commands.json поврежден. Список команд будет пуст.")
+            self._commands = []
+        except OSError as e:
+            logging.error(f"Ошибка чтения файла команд: {e}")
+            self._commands = []
 
     def _save(self):
-        os.makedirs(self._data_dir, exist_ok=True)
-        with open(self._file, "w", encoding="utf-8") as f:
-            json.dump([c.to_dict() for c in self._commands], f, ensure_ascii=False, indent=2)
-        self.commands_changed.emit()
+        try:
+            os.makedirs(self._data_dir, exist_ok=True)
+            with open(self._file, "w", encoding="utf-8") as f:
+                json.dump([c.to_dict() for c in self._commands], f, ensure_ascii=False, indent=2)
+            self.commands_changed.emit()
+        except OSError as e:
+            logging.error(f"Ошибка сохранения файла команд: {e}")
 
     def all_commands(self) -> list[Command]:
         return list(self._commands)
