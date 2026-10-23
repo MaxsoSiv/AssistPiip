@@ -1,6 +1,7 @@
 import winreg
 import sys
 import os
+import logging
 
 RUN_KEY = r"Software\Microsoft\Windows\CurrentVersion\Run"
 APP_NAME = "AssistPiip"
@@ -28,7 +29,11 @@ def set_autostart(enabled: bool) -> bool:
                 pass
         winreg.CloseKey(key)
         return True
-    except Exception:
+    except PermissionError:
+        logging.error("Нет прав на запись в реестр для автозапуска.")
+        return False
+    except OSError as e:
+        logging.error(f"Ошибка реестра при настройке автозапуска: {e}")
         return False
 
 
@@ -44,5 +49,6 @@ def is_autostart_enabled() -> bool:
             return False
         finally:
             winreg.CloseKey(key)
-    except Exception:
+    except OSError as e:
+        logging.error(f"Ошибка чтения реестра для проверки автозапуска: {e}")
         return False
