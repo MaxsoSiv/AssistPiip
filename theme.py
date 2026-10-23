@@ -50,6 +50,16 @@ QPushButton#calcMemory:hover { background: rgba(74, 77, 82, 0.9); }
 QPushButton#calcLogic { background: rgba(45, 55, 72, 0.9); color: #cbd5e0; border: none; border-radius: 24px; }
 QPushButton#calcLogic:hover { background: rgba(74, 85, 104, 0.9); }
 QLabel#calcHistoryLabel { color: #aaa; font-size: 12px; }
+QTableWidget { background: rgba(30, 31, 34, 0.85); border: 1px solid rgba(43, 45, 49, 0.8); border-radius: 10px; color: #ddd; gridline-color: transparent; }
+QTableWidget::item { padding: 4px; border-bottom: 1px solid rgba(43, 45, 49, 0.5); }
+QTableWidget::item:selected { background: #2b6cb0; color: #fff; }
+QHeaderView::section { background: #2b2d31; color: #aaa; border: none; padding: 4px; }
+QPushButton#monitorSearchBtn { background: #2b6cb0; color: #fff; border: none; border-radius: 4px; font-size: 11px; }
+QPushButton#monitorSearchBtn:hover { background: #3182ce; }
+QPushButton#monitorKillBtn { background: #5a1f1f; color: #fff; border: none; border-radius: 4px; font-size: 11px; }
+QPushButton#monitorKillBtn:hover { background: #7a2a2a; }
+QPushButton#monitorHelpBtn { background: #3a3d42; color: #ddd; border: none; border-radius: 12px; font-weight: bold; }
+QPushButton#monitorHelpBtn:hover { background: #4a4d52; }
 """
 
 LIGHT_QSS = """
@@ -102,6 +112,16 @@ QPushButton#calcMemory:hover { background: rgba(192, 195, 200, 0.9); }
 QPushButton#calcLogic { background: rgba(192, 195, 200, 0.9); color: #1a1b1e; border: none; border-radius: 24px; }
 QPushButton#calcLogic:hover { background: rgba(160, 163, 168, 0.9); }
 QLabel#calcHistoryLabel { color: #666; font-size: 12px; }
+QTableWidget { background: rgba(255, 255, 255, 0.9); border: 1px solid rgba(192, 195, 200, 0.8); border-radius: 10px; color: #1a1b1e; gridline-color: transparent; }
+QTableWidget::item { padding: 4px; border-bottom: 1px solid rgba(224, 227, 232, 0.5); }
+QTableWidget::item:selected { background: #2b6cb0; color: #fff; }
+QHeaderView::section { background: #d0d3d8; color: #333; border: none; padding: 4px; }
+QPushButton#monitorSearchBtn { background: #2b6cb0; color: #fff; border: none; border-radius: 4px; font-size: 11px; }
+QPushButton#monitorSearchBtn:hover { background: #3182ce; }
+QPushButton#monitorKillBtn { background: #5a1f1f; color: #fff; border: none; border-radius: 4px; font-size: 11px; }
+QPushButton#monitorKillBtn:hover { background: #7a2a2a; }
+QPushButton#monitorHelpBtn { background: #c0c3c8; color: #1a1b1e; border: none; border-radius: 12px; font-weight: bold; }
+QPushButton#monitorHelpBtn:hover { background: #b0b3b8; }
 """
 
 OCEAN_QSS = """
@@ -154,6 +174,16 @@ QPushButton#calcMemory:hover { background: rgba(42, 74, 115, 0.9); }
 QPushButton#calcLogic { background: rgba(23, 58, 94, 0.9); color: #c9d6e8; border: none; border-radius: 24px; }
 QPushButton#calcLogic:hover { background: rgba(29, 53, 87, 0.9); }
 QLabel#calcHistoryLabel { color: #8ca3c7; font-size: 12px; }
+QTableWidget { background: rgba(13, 31, 59, 0.85); border: 1px solid rgba(17, 34, 64, 0.8); border-radius: 10px; color: #c9d6e8; gridline-color: transparent; }
+QTableWidget::item { padding: 4px; border-bottom: 1px solid rgba(17, 34, 64, 0.5); }
+QTableWidget::item:selected { background: #00b4d8; color: #fff; }
+QHeaderView::section { background: #112240; color: #8ca3c7; border: none; padding: 4px; }
+QPushButton#monitorSearchBtn { background: #00b4d8; color: #fff; border: none; border-radius: 4px; font-size: 11px; }
+QPushButton#monitorSearchBtn:hover { background: #48cae4; }
+QPushButton#monitorKillBtn { background: #5a1f1f; color: #fff; border: none; border-radius: 4px; font-size: 11px; }
+QPushButton#monitorKillBtn:hover { background: #7a2a2a; }
+QPushButton#monitorHelpBtn { background: #1d3557; color: #c9d6e8; border: none; border-radius: 12px; font-weight: bold; }
+QPushButton#monitorHelpBtn:hover { background: #2a4a73; }
 """
 
 SUNSET_QSS = """
@@ -206,6 +236,16 @@ QPushButton#calcMemory:hover { background: rgba(122, 54, 24, 0.9); }
 QPushButton#calcLogic { background: rgba(74, 28, 21, 0.9); color: #fdf0d5; border: none; border-radius: 24px; }
 QPushButton#calcLogic:hover { background: rgba(94, 40, 18, 0.9); }
 QLabel#calcHistoryLabel { color: #fca311; font-size: 12px; }
+QTableWidget { background: rgba(31, 8, 8, 0.85); border: 1px solid rgba(61, 20, 20, 0.8); border-radius: 10px; color: #fdf0d5; gridline-color: transparent; }
+QTableWidget::item { padding: 4px; border-bottom: 1px solid rgba(61, 20, 20, 0.5); }
+QTableWidget::item:selected { background: #fca311; color: #000; }
+QHeaderView::section { background: #3d1414; color: #fca311; border: none; padding: 4px; }
+QPushButton#monitorSearchBtn { background: #fca311; color: #000; border: none; border-radius: 4px; font-size: 11px; }
+QPushButton#monitorSearchBtn:hover { background: #ffb703; }
+QPushButton#monitorKillBtn { background: #5a1f1f; color: #fff; border: none; border-radius: 4px; font-size: 11px; }
+QPushButton#monitorKillBtn:hover { background: #7a2a2a; }
+QPushButton#monitorHelpBtn { background: #5e2812; color: #fdf0d5; border: none; border-radius: 12px; font-weight: bold; }
+QPushButton#monitorHelpBtn:hover { background: #7a3a1e; }
 """
 
 THEMES = {

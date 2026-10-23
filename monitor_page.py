@@ -56,7 +56,7 @@ class MonitorPage(QWidget):
 
         btn_help = QPushButton("?")
         btn_help.setFixedSize(24, 24)
-        btn_help.setStyleSheet("background: #3a3d42; color: #ddd; border-radius: 12px; font-weight: bold;")
+        btn_help.setObjectName("monitorHelpBtn")
         btn_help.setToolTip("Что означают цвета?")
         btn_help.clicked.connect(self._show_help)
 
@@ -86,7 +86,6 @@ class MonitorPage(QWidget):
         self.table.verticalHeader().setVisible(False)
         self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
-        self.table.setStyleSheet("QTableWidget { background: rgba(30, 31, 34, 0.85); border-radius: 10px; color: #ddd; } QHeaderView::section { background: #2b2d31; color: #aaa; border: none; padding: 4px; }")
 
         layout.addWidget(self.table, 1)
         self.refresh_processes()
@@ -170,12 +169,12 @@ class MonitorPage(QWidget):
 
         btn_search = QPushButton("Поиск")
         btn_search.setFixedSize(60, 24)
-        btn_search.setStyleSheet("background: #2b6cb0; color: white; border-radius: 4px; font-size: 11px;")
+        btn_search.setObjectName("monitorSearchBtn")
         btn_search.clicked.connect(lambda checked, n=p['name']: self._search_process(n))
 
         btn_kill = QPushButton("Завершить")
         btn_kill.setFixedSize(70, 24)
-        btn_kill.setStyleSheet("background: #5a1f1f; color: white; border-radius: 4px; font-size: 11px;")
+        btn_kill.setObjectName("monitorKillBtn")
         btn_kill.clicked.connect(lambda checked, pid=p['pid'], n=p['name']: self._kill_process(pid, n))
 
         action_layout.addWidget(btn_search)

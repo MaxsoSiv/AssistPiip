@@ -1200,13 +1200,12 @@ class MainWindow(QMainWindow):
         pin_action = menu.addAction("Открепить" if note.pinned else "Закрепить")
         delete_action = menu.addAction("Удалить")
         action = menu.exec(self._notes_list.mapToGlobal(pos))
-        idx = self.notes_manager.all_notes().index(note)
         if action == open_action:
             self._open_note(item)
         elif action == pin_action:
-            self.notes_manager.toggle_pin(idx)
+            self.notes_manager.toggle_pin(note)
         elif action == delete_action:
-            self.notes_manager.remove_note(idx)
+            self.notes_manager.remove_note(note)
             logging.info(f"Удалена заметка: {note.title}")
 
     def _open_note(self, item):
@@ -1215,8 +1214,7 @@ class MainWindow(QMainWindow):
         if dlg.exec():
             updated = dlg.get_note()
             if updated:
-                idx = self.notes_manager.all_notes().index(note)
-                self.notes_manager.update_note(idx, updated)
+                self.notes_manager.update_note(note, updated)
 
     def _refresh_clipboard_list(self):
         if not hasattr(self, "_clipboard_list") or not shiboken6.isValid(self._clipboard_list):
@@ -1483,5 +1481,5 @@ class NoteDialog(QDialog):
         if not title:
             return None
         if self._note:
-            return Note(title, body, self._note.pinned, self._note.created)
+            return Note(title, body, self._note.pinned, self._note.created, self._note.id)
         return Note(title, body)
