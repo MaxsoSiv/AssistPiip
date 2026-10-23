@@ -1,6 +1,6 @@
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QTabWidget, QWidget, QLabel,
-    QTextEdit, QPushButton, QHBoxLayout
+    QTextEdit, QTextBrowser, QPushButton, QHBoxLayout
 )
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QIcon
@@ -50,9 +50,9 @@ CONTACTS_TEXT = """
 <p>AssistPiip — независимый проект. Если вы нашли ошибку, у вас есть предложение по улучшению или вопрос по работе приложения, вы можете связаться с нами:</p>
 
 <ul>
-<li><b>Сайт проекта:</b> (будет указан позже)</li>
-<li><b>GitHub:</b> (будет указан позже)</li>
-<li><b>Электронная почта:</b> (будет указана позже)</li>
+<li><b>Сайт проекта:</b> <a href="https://maxsosiv.github.io/AssistPiip/">maxsosiv.github.io/AssistPiip</a></li>
+<li><b>GitHub:</b> <a href="https://github.com/MaxsoSiv/AssistPiip/">github.com/MaxsoSiv/AssistPiip</a></li>
+<li><b>Электронная почта:</b> <a href="mailto:assistpiip@gmail.com">assistpiip@gmail.com</a></li>
 </ul>
 
 <p>Мы всегда рады обратной связи и стараемся отвечать на все конструктивные сообщения.</p>
@@ -70,7 +70,6 @@ class AboutDialog(QDialog):
 
         self.tabs = QTabWidget()
 
-        # Вкладка 1: О программе
         about_widget = QWidget()
         about_layout = QVBoxLayout(about_widget)
         about_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
@@ -93,7 +92,6 @@ class AboutDialog(QDialog):
         about_layout.addWidget(lbl_desc)
         about_layout.addStretch()
 
-        # Вкладка 2: Политика
         privacy_widget = QWidget()
         privacy_layout = QVBoxLayout(privacy_widget)
         privacy_layout.setContentsMargins(0, 0, 0, 0)
@@ -103,7 +101,6 @@ class AboutDialog(QDialog):
         privacy_edit.setStyleSheet("border: none; background: transparent;")
         privacy_layout.addWidget(privacy_edit)
 
-        # Вкладка 3: Условия
         terms_widget = QWidget()
         terms_layout = QVBoxLayout(terms_widget)
         terms_layout.setContentsMargins(0, 0, 0, 0)
@@ -113,12 +110,11 @@ class AboutDialog(QDialog):
         terms_edit.setStyleSheet("border: none; background: transparent;")
         terms_layout.addWidget(terms_edit)
 
-        # Вкладка 4: Контакты
         contacts_widget = QWidget()
         contacts_layout = QVBoxLayout(contacts_widget)
         contacts_layout.setContentsMargins(0, 0, 0, 0)
-        contacts_edit = QTextEdit()
-        contacts_edit.setReadOnly(True)
+        contacts_edit = QTextBrowser()
+        contacts_edit.setOpenExternalLinks(True)
         contacts_edit.setHtml(CONTACTS_TEXT)
         contacts_edit.setStyleSheet("border: none; background: transparent;")
         contacts_layout.addWidget(contacts_edit)

@@ -82,14 +82,6 @@ class SettingsManager(QObject):
         self.set("developer_mode", value)
 
     @property
-    def case_sensitive(self) -> bool:
-        return self.get("case_sensitive", False, type=bool)
-
-    @case_sensitive.setter
-    def case_sensitive(self, value: bool):
-        self.set("case_sensitive", value)
-
-    @property
     def always_on_top(self) -> bool:
         return self.get("always_on_top", False, type=bool)
 
