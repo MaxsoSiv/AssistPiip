@@ -4,10 +4,17 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>AssistPiip — ассистент для Windows</title>
-  <meta name="description" content="Локальный ассистент для Windows: команды в чате, свои триггеры, заметки, калькулятор. Скачать бесплатно.">
+  <meta name="description" content="Локальный ассистент для Windows: команды в чате, свои триггеры, заметки, напоминания, калькулятор, переводчик. Скачать бесплатно.">
+  <meta name="theme-color" content="#1a1b1e">
+  <meta name="color-scheme" content="dark">
   <link rel="icon" href="assistpiip.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="icon-256.png">
-  <meta property="og:image" content="icon-256.png">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://maxsosiv.github.io/AssistPiip/">
+  <meta property="og:title" content="AssistPiip — ассистент для Windows">
+  <meta property="og:description" content="Локальный ассистент: команды в чате, заметки, напоминания, калькулятор, переводчик. Без регистрации и сбора данных.">
+  <meta property="og:image" content="https://maxsosiv.github.io/AssistPiip/icon-256.png">
+  <meta name="twitter:card" content="summary">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -36,9 +43,10 @@
         <div class="hero-text">
           <h1>Текстовый ассистент для Windows</h1>
           <p class="hero-lead">
-            Открывает браузер, программы, файлы и папки по одной фразе.
-            Хранит заметки, управляет буфером обмена, считает на встроенном калькуляторе.
-            Работает локально, без регистрации и интернета.
+            Открывает браузер, программы и файлы по одной фразе.
+            Ставит напоминания и таймеры, ведёт заметки и историю буфера обмена,
+            считает, переводит и следит за процессами.
+            Работает локально, без регистрации.
           </p>
           <div class="hero-actions">
             <a class="btn btn-primary" href="#download" id="hero-download">
@@ -70,25 +78,27 @@
                 <div class="app-nav-item">Заметки</div>
                 <div class="app-nav-item">Команды</div>
                 <div class="app-nav-item">Буфер обмена</div>
+                <div class="app-nav-item">Переводчик</div>
+                <div class="app-nav-item">Монитор</div>
                 <div class="app-nav-item danger">Выход</div>
               </div>
             </aside>
             <div class="app-chat">
               <div class="app-msg user">
-                <div class="msg-header"><span class="msg-name" style="color: #e67e22;">Вы</span></div>
+                <div class="msg-header"><span class="msg-name msg-name-user">Вы</span></div>
                 <span>открой браузер</span>
               </div>
               <div class="app-msg bot">
-                <div class="msg-header"><span class="msg-name" style="color: #2b6cb0;">AssistPiip</span></div>
+                <div class="msg-header"><span class="msg-name msg-name-bot">AssistPiip</span></div>
                 <span>Открываю браузер</span>
               </div>
               <div class="app-msg user">
-                <div class="msg-header"><span class="msg-name" style="color: #e67e22;">Вы</span></div>
-                <span>буфер обмена</span>
+                <div class="msg-header"><span class="msg-name msg-name-user">Вы</span></div>
+                <span>напомни через 20 минут сделать перерыв</span>
               </div>
               <div class="app-msg bot">
-                <div class="msg-header"><span class="msg-name" style="color: #2b6cb0;">AssistPiip</span></div>
-                <span>Открываю историю буфера</span>
+                <div class="msg-header"><span class="msg-name msg-name-bot">AssistPiip</span></div>
+                <span>Напомню в 15:40: сделать перерыв</span>
               </div>
               <div class="app-input">
                 <span class="app-input-caret">›</span>
@@ -108,8 +118,8 @@
           <div class="feature">
             <h3>Команды</h3>
             <p>
-              Браузер, проводник, калькулятор, время, дата.
-              Понимает опечатки, транслит и английский ввод.
+              Браузер, проводник, айпи, пинг, заметки, напоминания, таймер.
+              Понимает опечатки и английский ввод.
             </p>
           </div>
 
@@ -122,18 +132,42 @@
           </div>
 
           <div class="feature">
-            <h3>Менеджер буфера</h3>
+            <h3>Напоминания и таймеры</h3>
             <p>
-              Автоматически сохраняет до 50 скопированных текстов и картинок.
-              Встроенный поиск по дате и быстрый просмотр.
+              «напомни через 20 минут купить хлеб», «таймер 5 минут».
+              Уведомления с кнопкой «Отложить на 5 минут», список активных по команде.
             </p>
           </div>
 
           <div class="feature">
-            <h3>Заметки и Калькулятор</h3>
+            <h3>Менеджер буфера</h3>
             <p>
-              Заметки с закреплением и редактированием.
-              Встроенный инженерный и программистский калькулятор.
+              Автоматически сохраняет до 50 скопированных текстов и картинок.
+              Поиск по содержимому и дате, быстрый просмотр и возврат в буфер.
+            </p>
+          </div>
+
+          <div class="feature">
+            <h3>Заметки и калькулятор</h3>
+            <p>
+              Заметки с закреплением, быстрое создание прямо из чата.
+              Обычный, инженерный и программистский калькулятор с системами счисления.
+            </p>
+          </div>
+
+          <div class="feature">
+            <h3>Переводчик</h3>
+            <p>
+              12 языков, определение исходного языка, обмен направлениями
+              и копирование результата в один клик.
+            </p>
+          </div>
+
+          <div class="feature">
+            <h3>Монитор процессов</h3>
+            <p>
+              Список запущенных процессов с цветовой маркировкой:
+              безопасно, неизвестно, подозрительно. Поиск информации и завершение.
             </p>
           </div>
 
@@ -141,15 +175,15 @@
             <h3>Оформление</h3>
             <p>
               Четыре темы: Тёмная, Светлая, «Закат», «Океан».
-              Анимированный фон, ползунки прозрачности для окон и кружка.
+              Анимированный фон, прозрачность окон и кружка.
             </p>
           </div>
 
           <div class="feature">
-            <h3>Поведение</h3>
+            <h3>Управление</h3>
             <p>
-              Сворачивается в плавающий кружок, можно закрепить поверх
-              других окон, добавить в автозапуск Windows.
+              Плавающий кружок, закрепление поверх окон, автозапуск,
+              настраиваемая горячая клавиша и автообновление.
             </p>
           </div>
         </div>
@@ -222,13 +256,15 @@
 
           <details class="faq-item">
             <summary>Где хранятся настройки и заметки</summary>
-            <p>
-              В папке с приложением (в директории <code>data/</code>):
-              <code>commands.json</code> — ваши команды,
-              <code>notes.json</code> — заметки,
-              <code>chat_history.json</code> — история чата.
-              Для резервной копии достаточно скопировать всю папку.
-            </p>
+              <p>
+                В папке с приложением (в директории <code>data/</code>):
+                <code>commands.json</code> — ваши команды,
+                <code>notes.json</code> — заметки,
+                <code>chat_history.json</code> — история чата,
+                <code>clipboard.json</code> — буфер обмена,
+                <code>reminders.json</code> — напоминания.
+                Для резервной копии достаточно скопировать всю папку.
+              </p>
           </details>
 
           <details class="faq-item">
@@ -316,9 +352,11 @@
               </p>
               <p>
                 Программа не содержит аналитики, не отправляет
-                статистику использования, не собирает идентификаторы
-                устройства и не обращается к сети без вашего ведома.
-                Единственное сетевое взаимодействие происходит, когда вы сами открываете браузер.
+                статистику использования и не собирает идентификаторы
+                устройства. В интернет она обращается только по вашей инициативе:
+                команды «айпи» и «пинг», перевод текста, а также проверка
+                обновлений (сравнивается номер версии с сайтом проекта,
+                проверку можно отключить в настройках).
               </p>
               <p>
                 Сайт, с которого вы скачиваете приложение, не использует cookies, трекеры и системы

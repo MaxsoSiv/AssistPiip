@@ -3,20 +3,20 @@
 
   const FALLBACK_RELEASES = [
     {
-      version: "1.0.0",
+      version: "1.0.1",
       date: "2026-10-24",
-      file: "releases/AssistPiip-Beta-1.0.0.zip",
+      file: "https://github.com/MaxsoSiv/AssistPiip/releases/download/Release/AssistPiip-1.0.1.zip",
       size: 0,
       notes:
-        "Первый бета-релиз. Что внутри:\n" +
-        "• Кастомные команды с алиасами и быстрым доступом\n" +
-        "• Буфер обмена (хранит текст и картинки, есть поиск по дате)\n" +
-        "• Встроенный калькулятор (обычный, инженерный, программистский)\n" +
-        "• Заметки с закреплением\n" +
-        "• 4 темы: Тёмная, Светлая, Закат, Океан\n" +
-        "• Анимированный фон в главном меню\n" +
-        "• Сворачивание в плавающий кружок\n\n" +
-        "Работает локально. Если найдёте баг — пишите на почту. Приятного пользования!",
+        "Обновление 1.0.1:\n" +
+        "• Глобальная горячая клавиша (по умолчанию Ctrl+Alt+P, меняется в настройках)\n" +
+        "• Автопроверка обновлений и обновление в один клик\n" +
+        "• Команда заметок: «заметка купить хлеб» или «заметка текст | описание»\n" +
+        "• Напоминания и таймеры с уведомлениями\n" +
+        "• Вкладка «Переводчик»\n" +
+        "• Улучшенный анимированный фон и плавающий кружок\n" +
+        "• Окно растягивается за угол, история команд стрелками\n" +
+        "• Исправлен калькулятор: XOR и логические операции в HEX",
     },
   ];
 
@@ -55,6 +55,22 @@
     }
   }
 
+  function versionTuple(v) {
+    return String(v || "0")
+      .split(".")
+      .map((p) => parseInt(p, 10) || 0);
+  }
+
+  function byVersionDesc(a, b) {
+    const ta = versionTuple(a.version);
+    const tb = versionTuple(b.version);
+    for (let i = 0; i < Math.max(ta.length, tb.length); i++) {
+      const d = (tb[i] || 0) - (ta[i] || 0);
+      if (d !== 0) return d;
+    }
+    return 0;
+  }
+
   async function loadReleases() {
     if (location.protocol === "file:") {
       return FALLBACK_RELEASES;
@@ -66,10 +82,10 @@
       if (!Array.isArray(data) || !data.length) {
         throw new Error("Пустой releases.json");
       }
-      return data;
+      return data.slice().sort(byVersionDesc);
     } catch (err) {
       console.warn("releases.json не загрузился, использую встроенные данные:", err);
-      return FALLBACK_RELEASES;
+      return FALLBACK_RELEASES.slice().sort(byVersionDesc);
     }
   }
 
