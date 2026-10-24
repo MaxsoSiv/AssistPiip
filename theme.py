@@ -25,6 +25,8 @@ QLineEdit#commandInput { background: rgba(43, 45, 49, 0.9); border: 1px solid #3
 QLineEdit#commandInput:focus { border-color: #2b6cb0; }
 QPushButton#primaryButton { background: #2b6cb0; color: #fff; border: none; border-radius: 10px; padding: 0 24px; font-weight: 600; }
 QPushButton#primaryButton:hover { background: #3182ce; }
+QPushButton#secondaryButton { background: rgba(58, 61, 66, 0.9); color: #ddd; border: none; border-radius: 8px; padding: 6px 14px; }
+QPushButton#secondaryButton:hover { background: rgba(74, 77, 82, 0.9); }
 QPushButton#dangerButton { background: #5a1f1f; color: #fff; border: none; border-radius: 10px; padding: 0 24px; font-weight: 600; }
 QPushButton#dangerButton:hover { background: #7a2a2a; }
 QPushButton#quickButton { background: rgba(43, 45, 49, 0.9); color: #ddd; border: 1px solid #3a3d42; border-radius: 8px; padding: 0 16px; }
@@ -90,6 +92,8 @@ QLineEdit#commandInput { background: rgba(255, 255, 255, 0.9); border: 1px solid
 QLineEdit#commandInput:focus { border-color: #2b6cb0; }
 QPushButton#primaryButton { background: #2b6cb0; color: #fff; border: none; border-radius: 10px; padding: 0 24px; font-weight: 600; }
 QPushButton#primaryButton:hover { background: #3182ce; }
+QPushButton#secondaryButton { background: rgba(208, 211, 216, 0.9); color: #1a1b1e; border: none; border-radius: 8px; padding: 6px 14px; }
+QPushButton#secondaryButton:hover { background: rgba(192, 195, 200, 0.9); }
 QPushButton#dangerButton { background: #5a1f1f; color: #fff; border: none; border-radius: 10px; padding: 0 24px; font-weight: 600; }
 QPushButton#dangerButton:hover { background: #7a2a2a; }
 QPushButton#quickButton { background: rgba(255, 255, 255, 0.9); color: #1a1b1e; border: 1px solid #c0c3c8; border-radius: 8px; padding: 0 16px; }
@@ -155,6 +159,8 @@ QLineEdit#commandInput { background: rgba(17, 34, 64, 0.9); border: 1px solid #1
 QLineEdit#commandInput:focus { border-color: #00b4d8; }
 QPushButton#primaryButton { background: #00b4d8; color: #fff; border: none; border-radius: 10px; padding: 0 24px; font-weight: 600; }
 QPushButton#primaryButton:hover { background: #48cae4; }
+QPushButton#secondaryButton { background: rgba(29, 53, 87, 0.9); color: #c9d6e8; border: none; border-radius: 8px; padding: 6px 14px; }
+QPushButton#secondaryButton:hover { background: rgba(42, 74, 115, 0.9); }
 QPushButton#dangerButton { background: #5a1f1f; color: #fff; border: none; border-radius: 10px; padding: 0 24px; font-weight: 600; }
 QPushButton#dangerButton:hover { background: #7a2a2a; }
 QPushButton#quickButton { background: rgba(17, 34, 64, 0.9); color: #c9d6e8; border: 1px solid #1d3557; border-radius: 8px; padding: 0 16px; }
@@ -220,6 +226,8 @@ QLineEdit#commandInput { background: rgba(61, 20, 20, 0.9); border: 1px solid #5
 QLineEdit#commandInput:focus { border-color: #fca311; }
 QPushButton#primaryButton { background: #fca311; color: #000; border: none; border-radius: 10px; padding: 0 24px; font-weight: 600; }
 QPushButton#primaryButton:hover { background: #ffb703; }
+QPushButton#secondaryButton { background: rgba(94, 40, 18, 0.9); color: #fdf0d5; border: none; border-radius: 8px; padding: 6px 14px; }
+QPushButton#secondaryButton:hover { background: rgba(122, 54, 24, 0.9); }
 QPushButton#dangerButton { background: #5a1f1f; color: #fff; border: none; border-radius: 10px; padding: 0 24px; font-weight: 600; }
 QPushButton#dangerButton:hover { background: #7a2a2a; }
 QPushButton#quickButton { background: rgba(61, 20, 20, 0.9); color: #fdf0d5; border: 1px solid #5e2812; border-radius: 8px; padding: 0 16px; }

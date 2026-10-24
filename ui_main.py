@@ -1,4 +1,5 @@
 import os
+import sys
 import logging
 import shiboken6
 import random
@@ -6,14 +7,17 @@ import base64
 import subprocess
 import re
 import requests
+from ctypes import wintypes
+import win32con
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLineEdit,
     QPushButton, QLabel, QStackedWidget, QListWidget, QListWidgetItem,
     QTextEdit, QDialog, QFormLayout, QComboBox, QCheckBox, QSlider,
-    QFileDialog, QMessageBox, QMenu, QFrame, QGridLayout, QScrollArea, QSizePolicy, QSizeGrip
+    QFileDialog, QMessageBox, QMenu, QFrame, QGridLayout, QScrollArea,
+    QSizePolicy, QSizeGrip, QKeySequenceEdit, QProgressDialog
 )
 from PySide6.QtCore import Qt, QBuffer, QIODevice, QSize
-from PySide6.QtGui import QIcon, QPixmapCache, QPixmap, QPainter, QLinearGradient, QColor, QFont, QCursor
+from PySide6.QtGui import QIcon, QPixmapCache, QPixmap, QPainter, QLinearGradient, QColor, QFont, QCursor, QKeySequence
 
 from settings_manager import SettingsManager
 from command_manager import CommandManager, Command
@@ -22,7 +26,9 @@ from chat_manager import ChatManager
 from clipboard_manager import ClipboardManager, ClipboardEntry
 from fuzzy_matcher import FuzzyMatcher
 from floating_widget import FloatingCircle
-from utils import open_path, open_url, set_always_on_top, get_app_dir
+from utils import open_path, open_url, set_always_on_top, get_app_dir, APP_VERSION
+import updater
+from hotkey_manager import HotkeyManager, HOTKEY_ID
 from calculator import CalculatorPage
 from monitor_page import MonitorPage
 from jarvis_bg import JarvisBackground
@@ -95,6 +101,29 @@ class MainWindow(QMainWindow):
         if self._always_on_top:
             set_always_on_top(self, True)
             self._pin_btn.setIcon(self._icons.get("pin_on", QIcon()))
+
+        self._update_checker = None
+        self._update_downloader = None
+
+        self._hotkey = HotkeyManager(self)
+        ok, err = self._hotkey.register(self.settings.hotkey)
+        if ok:
+            logging.info(f"Горячая клавиша: {self.settings.hotkey}")
+        else:
+            logging.warning(f"Горячая клавиша {self.settings.hotkey} не назначена: {err}")
+
+    def nativeEvent(self, eventType, message):
+        msg = wintypes.MSG.from_address(int(message))
+        if msg.message == win32con.WM_HOTKEY and msg.wParam == HOTKEY_ID:
+            self._toggle_via_hotkey()
+            return True, 0
+        return super().nativeEvent(eventType, message)
+
+    def _toggle_via_hotkey(self):
+        if self.isVisible() and not self.isMinimized():
+            self._minimize_to_circle()
+        else:
+            self._restore_from_circle()
 
     def _on_new_log(self, text):
         self._log_history.append(text)
@@ -261,7 +290,7 @@ class MainWindow(QMainWindow):
 
         layout.addStretch()
 
-        version_label = QLabel("v1.0.0 Beta")
+        version_label = QLabel(f"v{APP_VERSION}")
         version_label.setObjectName("versionLabel")
         layout.addWidget(version_label)
 
@@ -436,6 +465,7 @@ class MainWindow(QMainWindow):
         builtins = [
             ("Браузер", "браузер"),
             ("Проводник", "проводник"),
+            ("Заметки", "заметки"),
             ("Айпи", "айпи"),
             ("Пинг", "пинг"),
             ("Свернуть", "__minimize__"),
@@ -531,6 +561,30 @@ class MainWindow(QMainWindow):
         browse_btn.clicked.connect(self._browse_browser)
         browser_row.addWidget(browse_btn)
         form.addRow("Путь к браузеру:", browser_row)
+
+        hotkey_row = QHBoxLayout()
+        self._hotkey_edit = QKeySequenceEdit(QKeySequence(self.settings.hotkey))
+        self._hotkey_edit.setToolTip("Нажмите комбинацию из 2-4 клавиш, например Ctrl+Alt+P.\nПоказать или скрыть окно из любой программы.")
+        self._hotkey_edit.editingFinished.connect(self._on_hotkey_changed)
+        hotkey_row.addWidget(self._hotkey_edit)
+        hotkey_reset_btn = QPushButton("По умолчанию")
+        hotkey_reset_btn.setObjectName("secondaryButton")
+        hotkey_reset_btn.clicked.connect(self._reset_hotkey)
+        hotkey_row.addWidget(hotkey_reset_btn)
+        form.addRow("Горячая клавиша:", hotkey_row)
+
+        self._updates_check = QCheckBox("Проверять обновления при запуске")
+        self._updates_check.setChecked(self.settings.check_updates)
+        self._updates_check.toggled.connect(self._on_updates_toggled)
+        form.addRow("", self._updates_check)
+
+        update_row = QHBoxLayout()
+        self._check_update_btn = QPushButton("Проверить обновления")
+        self._check_update_btn.setObjectName("primaryButton")
+        self._check_update_btn.clicked.connect(lambda: self._check_updates(True))
+        update_row.addWidget(self._check_update_btn)
+        update_row.addStretch()
+        form.addRow("Обновления:", update_row)
 
         self._autostart_check = QCheckBox("Запускать при старте Windows")
         self._autostart_check.setChecked(autostart_mod.is_autostart_enabled())
@@ -898,7 +952,7 @@ class MainWindow(QMainWindow):
             result.extend(cmd.aliases)
         result.extend([
             "браузер", "browser", "проводник", "explorer",
-            "свернуть", "выход", "помощь",
+            "свернуть", "выход", "помощь", "заметки",
             "айпи", "ip", "пинг", "ping"
         ])
         return result
@@ -920,6 +974,8 @@ class MainWindow(QMainWindow):
             return "ip"
         if normalized.startswith(("пинг", "ping")):
             return "ping"
+        if normalized.startswith(("заметка", "заметки", "note")):
+            return "notes"
 
         return None
 
@@ -969,6 +1025,32 @@ class MainWindow(QMainWindow):
         elif key == "проводник":
             open_path(os.path.expanduser("~"))
             self._log_chat("assistant", "Открываю проводник")
+        elif key == "notes":
+            rest = raw_text.strip()
+            lowered = rest.lower()
+            for prefix in ("заметки", "заметка", "notes", "note"):
+                if lowered.startswith(prefix):
+                    rest = rest[len(prefix):].lstrip(" :,-")
+                    break
+
+            if not rest:
+                self._on_nav(PAGE_NOTES)
+                self._log_chat("assistant", "Открываю заметки. Чтобы создать: «заметка <текст>» или «заметка <текст> | <описание>»")
+                return
+
+            if "|" in rest:
+                title, body = rest.split("|", 1)
+                title, body = title.strip(), body.strip()
+            else:
+                title, body = rest, ""
+
+            note = Note(title or "Без названия", body)
+            self.notes_manager.add_note(note)
+            msg = f"Заметка сохранена: «{note.title}»"
+            if body:
+                msg += f" ({len(body)} симв.)"
+            self._log_chat("assistant", msg)
+            logging.info(f"Быстрая заметка создана: {note.title}")
         elif key == "свернуть":
             self._minimize_to_circle()
         elif key == "выход":
@@ -980,7 +1062,8 @@ class MainWindow(QMainWindow):
         QMessageBox.information(
             self, "Помощь",
             "Введите команду в поле ввода.\n"
-            "Доступны: браузер, проводник, свернуть, выход, помощь, айпи, пинг.\n"
+            "Доступны: браузер, проводник, заметки, свернуть, выход, помощь, айпи, пинг.\n"
+            "Быстрая заметка: «заметка купить хлеб» или «заметка купить хлеб | вечером».\n"
             "Также можно создавать свои команды во вкладке «Команды»."
         )
 
@@ -1060,6 +1143,97 @@ class MainWindow(QMainWindow):
             self.settings.autostart = checked
             logging.info(f"Автозапуск: {'вкл' if checked else 'выкл'}")
 
+    def _on_hotkey_changed(self):
+        combo = self._hotkey_edit.keySequence().toString()
+        if not combo or combo == self.settings.hotkey:
+            return
+        ok, err = self._hotkey.register(combo)
+        if ok:
+            self.settings.hotkey = combo
+            self._status.setText(f"Горячая клавиша: {combo}")
+            logging.info(f"Горячая клавиша изменена: {combo}")
+        else:
+            QMessageBox.warning(self, "Горячая клавиша", f"Не удалось назначить «{combo}»:\n{err}")
+            self._hotkey_edit.setKeySequence(QKeySequence(self.settings.hotkey))
+
+    def _reset_hotkey(self):
+        self._hotkey_edit.setKeySequence(QKeySequence("Ctrl+Alt+P"))
+        self._on_hotkey_changed()
+
+    def _on_updates_toggled(self, checked: bool):
+        self.settings.check_updates = checked
+
+    def _check_updates(self, manual=False):
+        if self._update_checker is not None:
+            return
+        self._update_checker = updater.UpdateChecker(self)
+        self._update_checker.finished.connect(lambda info: self._on_update_info(info, manual))
+        self._update_checker.start()
+        if manual:
+            self._status.setText("Проверяю обновления...")
+
+    def _on_update_info(self, info, manual):
+        self._update_checker.deleteLater()
+        self._update_checker = None
+
+        if not info or "error" in info:
+            err = info.get("error") if info else "пустой ответ"
+            logging.warning(f"Проверка обновлений не удалась: {err}")
+            if manual:
+                QMessageBox.warning(self, "Обновления", "Не удалось проверить обновления.\nПроверьте подключение к интернету.")
+            return
+
+        remote = str(info.get("version", ""))
+        if not updater.is_newer(remote, APP_VERSION):
+            if manual:
+                QMessageBox.information(self, "Обновления", f"У вас последняя версия ({APP_VERSION}).")
+            return
+
+        notes = info.get("notes", "")
+        url = info.get("file", "")
+
+        box = QMessageBox(self)
+        box.setWindowTitle("Доступно обновление")
+        box.setText(f"Вышла версия {remote} (у вас {APP_VERSION}).")
+        box.setInformativeText(notes)
+
+        auto_btn = None
+        if getattr(sys, "frozen", False) and url:
+            auto_btn = box.addButton("Обновить автоматически", QMessageBox.ButtonRole.AcceptRole)
+        page_btn = box.addButton("Открыть страницу скачивания", QMessageBox.ButtonRole.HelpRole)
+        box.addButton("Позже", QMessageBox.ButtonRole.RejectRole)
+        box.exec()
+
+        clicked = box.clickedButton()
+        if clicked is auto_btn:
+            self._download_update(url)
+        elif clicked is page_btn:
+            open_url(updater.SITE_URL, self.settings.browser_path)
+
+    def _download_update(self, url):
+        progress = QProgressDialog("Скачиваю обновление...", None, 0, 0, self)
+        progress.setWindowTitle("Обновление")
+        progress.setWindowModality(Qt.WindowModality.WindowModal)
+        progress.setMinimumDuration(0)
+        progress.show()
+
+        self._update_downloader = updater.UpdateDownloader(self)
+
+        def on_done(path):
+            progress.close()
+            if updater.apply_update(path, get_app_dir(), os.getpid()):
+                self._full_exit()
+            else:
+                QMessageBox.warning(self, "Обновление", "Архив обновления повреждён.\nСкачайте новую версию с сайта вручную.")
+
+        def on_fail(err):
+            progress.close()
+            QMessageBox.warning(self, "Обновление", f"Не удалось скачать обновление:\n{err}")
+
+        self._update_downloader.finished.connect(on_done)
+        self._update_downloader.failed.connect(on_fail)
+        self._update_downloader.start(url)
+
     def _toggle_pin(self):
         self._always_on_top = not self._always_on_top
         set_always_on_top(self, self._always_on_top)
@@ -1077,6 +1251,8 @@ class MainWindow(QMainWindow):
 
     def _full_exit(self):
         logging.info("Выход из приложения")
+        if hasattr(self, "_hotkey") and self._hotkey:
+            self._hotkey.unregister()
         if self._floating:
             self._floating.close()
         if self._tray:

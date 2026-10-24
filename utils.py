@@ -6,6 +6,8 @@ import logging
 import win32gui
 import win32con
 
+APP_VERSION = "1.0.1"
+
 
 def get_app_dir():
     if getattr(sys, 'frozen', False):

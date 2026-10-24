@@ -7,10 +7,12 @@ from PySide6.QtGui import (
 )
 from PySide6.QtWidgets import QWidget
 
+from utils import APP_VERSION
+
 ACCENT_A = QColor(60, 160, 240)
 ACCENT_B = QColor(60, 220, 200)
 TITLE = "AssistPiip"
-VERSION = "1.0.0 Beta"
+VERSION = APP_VERSION
 HINTS = (
     (620, "Инициализация интерфейса"),
     (1050, "Загрузка команд и заметок"),

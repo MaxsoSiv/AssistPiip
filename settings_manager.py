@@ -90,6 +90,22 @@ class SettingsManager(QObject):
         self.set("always_on_top", value)
 
     @property
+    def hotkey(self) -> str:
+        return self.get("hotkey", "Ctrl+Alt+P")
+
+    @hotkey.setter
+    def hotkey(self, value: str):
+        self.set("hotkey", value)
+
+    @property
+    def check_updates(self) -> bool:
+        return self.get("check_updates", True, type=bool)
+
+    @check_updates.setter
+    def check_updates(self, value: bool):
+        self.set("check_updates", value)
+
+    @property
     def quick_commands(self) -> list[str]:
         val = self.get("quick_commands", None)
         if val is None:

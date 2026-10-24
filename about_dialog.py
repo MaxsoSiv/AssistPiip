@@ -5,6 +5,8 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QIcon
 
+from utils import APP_VERSION
+
 PRIVACY_TEXT = """
 <h3>Политика конфиденциальности AssistPiip</h3>
 <p><b>Дата последнего обновления:</b> 2026 г.</p>
@@ -77,7 +79,7 @@ class AboutDialog(QDialog):
         lbl_title = QLabel("AssistPiip")
         lbl_title.setStyleSheet("font-size: 28px; font-weight: bold; color: #2b6cb0;")
 
-        lbl_ver = QLabel("Версия: 1.0.0 (Beta)")
+        lbl_ver = QLabel(f"Версия: {APP_VERSION} (Beta)")
         lbl_ver.setStyleSheet("font-size: 14px; color: #888;")
 
         lbl_desc = QLabel(

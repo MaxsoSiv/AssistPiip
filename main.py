@@ -71,6 +71,9 @@ def main():
         state["window"] = window
         reveal()
 
+        if settings.check_updates:
+            QTimer.singleShot(3500, window._check_updates)
+
     def on_splash_finished():
         state["splash_done"] = True
         reveal()
