@@ -1,7 +1,7 @@
 import math
 from PySide6.QtWidgets import QWidget, QGraphicsBlurEffect
 from PySide6.QtCore import Qt, QTimer, QPointF, QRectF
-from PySide6.QtGui import QPainter, QColor, QPen, QRadialGradient, QBrush
+from PySide6.QtGui import QPainter, QColor, QPen, QRadialGradient, QConicalGradient, QBrush
 
 
 class JarvisBackground(QWidget):
@@ -14,6 +14,7 @@ class JarvisBackground(QWidget):
         self._timer.timeout.connect(self._update_anim)
 
         self._angle = 0
+        self._tick_angle = 0
         self._pulse = 0.0
         self._pulse_dir = 1
 
@@ -59,6 +60,7 @@ class JarvisBackground(QWidget):
 
     def _update_anim(self):
         self._angle = (self._angle + 1) % 360
+        self._tick_angle = (self._tick_angle + 0.25) % 360
         self._pulse += 0.015 * self._pulse_dir
         if self._pulse >= 1.0:
             self._pulse = 1.0
@@ -79,14 +81,40 @@ class JarvisBackground(QWidget):
         cx, cy = w / 2.0, h / 2.0
         max_r = min(w, h) * 0.8
 
+        self._paint_base(painter, cx, cy, max_r)
+        self._paint_sweep(painter, cx, cy, max_r)
+        self._paint_rings(painter, cx, cy, max_r)
+        self._paint_ticks(painter, cx, cy, max_r)
+        self._paint_arcs(painter, cx, cy, max_r)
+        self._paint_satellites(painter, cx, cy, max_r)
+        painter.end()
+
+    def _paint_base(self, painter, cx, cy, max_r):
         base_c = QColor(self._base)
         base_c.setAlpha(165)
         grad = QRadialGradient(cx, cy, max_r)
         grad.setColorAt(0, base_c)
         base_c.setAlpha(0)
         grad.setColorAt(1, base_c)
-        painter.fillRect(self.rect(), grad)
+        painter.fillRect(self.rect(), QBrush(grad))
 
+    def _paint_sweep(self, painter, cx, cy, max_r):
+        accent = QColor(self._accent)
+        sweep = QConicalGradient(cx, cy, -self._angle)
+        c0 = QColor(accent)
+        c0.setAlpha(0)
+        sweep.setColorAt(0.0, c0)
+        c1 = QColor(accent)
+        c1.setAlpha(26)
+        sweep.setColorAt(0.88, c1)
+        c2 = QColor(accent)
+        c2.setAlpha(0)
+        sweep.setColorAt(1.0, c2)
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(QBrush(sweep))
+        painter.drawEllipse(QPointF(cx, cy), max_r * 0.92, max_r * 0.92)
+
+    def _paint_rings(self, painter, cx, cy, max_r):
         accent = QColor(self._accent)
 
         c1 = QColor(accent)
@@ -100,6 +128,34 @@ class JarvisBackground(QWidget):
         r2 = max_r * 0.6 + self._pulse * 25
         painter.drawEllipse(QPointF(cx, cy), r2, r2)
 
+        c3 = QColor(accent)
+        c3.setAlpha(40)
+        painter.setPen(QPen(c3, 1))
+        painter.drawEllipse(QPointF(cx, cy), max_r * 0.78, max_r * 0.78)
+
+    def _paint_ticks(self, painter, cx, cy, max_r):
+        accent = QColor(self._accent)
+        painter.save()
+        painter.translate(cx, cy)
+        painter.rotate(self._tick_angle)
+
+        for i in range(48):
+            major = (i % 4 == 0)
+            t1 = QColor(accent)
+            t1.setAlpha(85 if major else 38)
+            painter.setPen(QPen(t1, 2 if major else 1))
+            r_out = max_r * 0.84
+            r_in = r_out - (10 if major else 5)
+            a = math.radians(i * 7.5)
+            painter.drawLine(
+                QPointF(r_in * math.cos(a), r_in * math.sin(a)),
+                QPointF(r_out * math.cos(a), r_out * math.sin(a)),
+            )
+        painter.restore()
+
+    def _paint_arcs(self, painter, cx, cy, max_r):
+        accent = QColor(self._accent)
+        painter.save()
         painter.translate(cx, cy)
 
         painter.save()
@@ -125,4 +181,50 @@ class JarvisBackground(QWidget):
         painter.drawArc(rect2, 180 * 16, 30 * 16)
         painter.restore()
 
-        painter.end()
+        painter.save()
+        painter.rotate(self._angle * 0.7)
+        c5 = QColor(accent.lighter(160))
+        c5.setAlpha(70)
+        pen3 = QPen(c5, 2)
+        pen3.setCapStyle(Qt.PenCapStyle.RoundCap)
+        painter.setPen(pen3)
+        rect3 = QRectF(-max_r * 0.9, -max_r * 0.9, max_r * 1.8, max_r * 1.8)
+        painter.drawArc(rect3, 100 * 16, 20 * 16)
+        painter.restore()
+        painter.restore()
+
+    def _paint_satellites(self, painter, cx, cy, max_r):
+        accent = QColor(self._accent)
+        painter.setPen(Qt.PenStyle.NoPen)
+
+        sats = (
+            (0.4, 1.0, 3.2, 150),
+            (0.6, -0.62, 2.6, 190),
+            (0.78, 0.45, 2.2, 230),
+        )
+        t = self._angle
+        for radius_f, speed, size, offset in sats:
+            a = math.radians(offset + t * speed)
+            r = max_r * radius_f
+            x, y = cx + r * math.cos(a), cy + r * math.sin(a)
+
+            for k in range(1, 5):
+                ta = a - math.radians(k * 9 * speed)
+                tp = QColor(accent)
+                tp.setAlpha(int(50 / k))
+                painter.setBrush(tp)
+                tr = r
+                painter.drawEllipse(
+                    QPointF(cx + tr * math.cos(ta), cy + tr * math.sin(ta)),
+                    size / k * 0.7, size / k * 0.7,
+                )
+
+            halo = QColor(accent)
+            halo.setAlpha(60)
+            painter.setBrush(halo)
+            painter.drawEllipse(QPointF(x, y), size * 2.0, size * 2.0)
+
+            dot = QColor(accent.lighter(130))
+            dot.setAlpha(220)
+            painter.setBrush(dot)
+            painter.drawEllipse(QPointF(x, y), size, size)
