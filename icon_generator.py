@@ -156,6 +156,18 @@ def _create_icon_set(output_dir):
     d.line([17, 7, 7, 17], fill=c, width=2)
     icons["close"] = img
 
+    img = Image.new("RGBA", (s, s), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    try:
+        letter_font = ImageFont.truetype("arial.ttf", 10)
+    except OSError:
+        letter_font = ImageFont.load_default()
+    d.text((1, 10), "Я", fill=c, font=letter_font)
+    d.text((12, 1), "A", fill=c, font=letter_font)
+    d.line([(6, 16), (16, 6)], fill=c, width=2)
+    d.polygon([(10, 5), (17, 4), (16, 11)], fill=c)
+    icons["translate"] = img
+
     for name, image in icons.items():
         image.save(os.path.join(output_dir, f"{name}.png"))
 

@@ -7,10 +7,11 @@ import base64
 import subprocess
 import re
 import requests
+from datetime import datetime, timedelta
 from ctypes import wintypes
 import win32con
 from PySide6.QtWidgets import (
-    QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLineEdit,
+    QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLineEdit,
     QPushButton, QLabel, QStackedWidget, QListWidget, QListWidgetItem,
     QTextEdit, QDialog, QFormLayout, QComboBox, QCheckBox, QSlider,
     QFileDialog, QMessageBox, QMenu, QFrame, QGridLayout, QScrollArea,
@@ -24,6 +25,8 @@ from command_manager import CommandManager, Command
 from notes_manager import NotesManager, Note
 from chat_manager import ChatManager
 from clipboard_manager import ClipboardManager, ClipboardEntry
+from reminders import ReminderManager, parse_when
+from toast import ToastManager
 from fuzzy_matcher import FuzzyMatcher
 from floating_widget import FloatingCircle
 from utils import open_path, open_url, set_always_on_top, get_app_dir, APP_VERSION
@@ -31,6 +34,7 @@ import updater
 from hotkey_manager import HotkeyManager, HOTKEY_ID
 from calculator import CalculatorPage
 from monitor_page import MonitorPage
+from translator import TranslatorPage
 from jarvis_bg import JarvisBackground
 from about_dialog import AboutDialog
 from theme import THEMES
@@ -44,7 +48,8 @@ PAGE_NOTES = 3
 PAGE_CLIPBOARD = 4
 PAGE_CALCULATOR = 5
 PAGE_MONITOR = 6
-PAGE_COUNT = 7
+PAGE_TRANSLATE = 7
+PAGE_COUNT = 8
 
 
 class MainWindow(QMainWindow):
@@ -61,7 +66,7 @@ class MainWindow(QMainWindow):
 
         base = get_app_dir()
         self._icons = {}
-        for name in ["main", "settings", "calculator", "notes", "commands", "clipboard", "monitor",
+        for name in ["main", "settings", "calculator", "notes", "commands", "clipboard", "monitor", "translate",
                      "collapse", "exit", "pin_on", "pin_off", "minimize", "maximize", "close"]:
             path = os.path.join(base, "icons", f"{name}.png")
             if os.path.exists(path):
@@ -81,6 +86,9 @@ class MainWindow(QMainWindow):
         self.notes_manager = NotesManager(data_dir)
         self.chat_manager = ChatManager(data_dir, limit=80)
         self.clipboard_manager = ClipboardManager(data_dir, limit=50)
+        self.reminder_manager = ReminderManager(data_dir)
+        self.toast_manager = ToastManager(self.settings.theme)
+        self.reminder_manager.triggered.connect(self._on_reminder)
         self._clipboard_search_query = ""
 
         self._floating = None
@@ -88,7 +96,7 @@ class MainWindow(QMainWindow):
         self._pages_created = set()
         self._page_widgets = {}
         self._placeholders = {}
-        self._heavy_pages = {PAGE_SETTINGS, PAGE_COMMANDS, PAGE_NOTES, PAGE_CLIPBOARD, PAGE_CALCULATOR, PAGE_MONITOR}
+        self._heavy_pages = {PAGE_SETTINGS, PAGE_COMMANDS, PAGE_NOTES, PAGE_CLIPBOARD, PAGE_CALCULATOR, PAGE_MONITOR, PAGE_TRANSLATE}
 
         self._build_ui()
         self._connect_signals()
@@ -271,6 +279,7 @@ class MainWindow(QMainWindow):
             ("Заметки", "notes", PAGE_NOTES),
             ("Команды", "commands", PAGE_COMMANDS),
             ("Буфер обмена", "clipboard", PAGE_CLIPBOARD),
+            ("Переводчик", "translate", PAGE_TRANSLATE),
             ("Монитор", "monitor", PAGE_MONITOR),
         ]
 
@@ -573,6 +582,10 @@ class MainWindow(QMainWindow):
         hotkey_row.addWidget(hotkey_reset_btn)
         form.addRow("Горячая клавиша:", hotkey_row)
 
+        hotkey_hint = QLabel("Действие: показывает или скрывает окно AssistPiip из любой программы")
+        hotkey_hint.setStyleSheet("color: #888; font-size: 11px;")
+        form.addRow("", hotkey_hint)
+
         self._updates_check = QCheckBox("Проверять обновления при запуске")
         self._updates_check.setChecked(self.settings.check_updates)
         self._updates_check.toggled.connect(self._on_updates_toggled)
@@ -763,6 +776,15 @@ class MainWindow(QMainWindow):
         layout.addWidget(monitor)
         return page
 
+    def _create_translate_page(self) -> QWidget:
+        page = QWidget()
+        page.setObjectName("pageContainer")
+        layout = QVBoxLayout(page)
+        layout.setContentsMargins(0, 0, 0, 0)
+        translator = TranslatorPage()
+        layout.addWidget(translator)
+        return page
+
     def _ensure_page(self, index: int) -> QWidget:
         if index in self._pages_created:
             return self._page_widgets[index]
@@ -780,6 +802,8 @@ class MainWindow(QMainWindow):
             widget = self._create_calculator_page()
         elif index == PAGE_MONITOR:
             widget = self._create_monitor_page()
+        elif index == PAGE_TRANSLATE:
+            widget = self._create_translate_page()
         else:
             return None
         ph = self._placeholders[index]
@@ -952,7 +976,7 @@ class MainWindow(QMainWindow):
             result.extend(cmd.aliases)
         result.extend([
             "браузер", "browser", "проводник", "explorer",
-            "свернуть", "выход", "помощь", "заметки",
+            "свернуть", "выход", "помощь", "заметки", "напомни", "таймер",
             "айпи", "ip", "пинг", "ping"
         ])
         return result
@@ -976,6 +1000,10 @@ class MainWindow(QMainWindow):
             return "ping"
         if normalized.startswith(("заметка", "заметки", "note")):
             return "notes"
+        if normalized.startswith(("напомни", "напомнить", "напоминание", "reminder")):
+            return "remind"
+        if normalized.startswith(("таймер", "timer")):
+            return "timer"
 
         return None
 
@@ -1051,6 +1079,8 @@ class MainWindow(QMainWindow):
                 msg += f" ({len(body)} симв.)"
             self._log_chat("assistant", msg)
             logging.info(f"Быстрая заметка создана: {note.title}")
+        elif key in ("remind", "timer"):
+            self._run_reminder_command(key, raw_text)
         elif key == "свернуть":
             self._minimize_to_circle()
         elif key == "выход":
@@ -1062,10 +1092,64 @@ class MainWindow(QMainWindow):
         QMessageBox.information(
             self, "Помощь",
             "Введите команду в поле ввода.\n"
-            "Доступны: браузер, проводник, заметки, свернуть, выход, помощь, айпи, пинг.\n"
+            "Доступны: браузер, проводник, заметки, напоминания, таймер, свернуть, выход, помощь, айпи, пинг.\n"
             "Быстрая заметка: «заметка купить хлеб» или «заметка купить хлеб | вечером».\n"
+            "Напоминания: «напомни через 20 минут купить хлеб», «напомни в 19:30 позвонить».\n"
+            "Таймер: «таймер 5 минут», «таймер 30 секунд».\n"
             "Также можно создавать свои команды во вкладке «Команды»."
         )
+
+    def _run_reminder_command(self, key, raw_text):
+        kind = "timer" if key == "timer" else "reminder"
+        prefixes = ("напоминание", "напомнить", "напомни", "reminder") if kind == "reminder" else ("таймер", "timer")
+        lowered = raw_text.lower()
+        rest = raw_text
+        for prefix in prefixes:
+            if lowered.startswith(prefix):
+                rest = raw_text[len(prefix):].lstrip(" :,")
+                break
+
+        if not rest or rest.lower().startswith(("список", "list")):
+            self._list_reminders()
+            return
+
+        parsed = parse_when(rest)
+        if parsed is None and rest.lstrip()[:1].isdigit():
+            parsed = parse_when("через " + rest)
+        if parsed is None:
+            self._log_chat(
+                "assistant",
+                "Не поняла время. Примеры: «напомни через 20 минут купить хлеб», "
+                "«напомни в 19:30 позвонить», «таймер 5 минут»"
+            )
+            return
+
+        due, label = parsed
+        if not label:
+            label = "Таймер" if kind == "timer" else "Напоминание"
+        entry = self.reminder_manager.add(due, label, kind)
+        title = "Таймер на" if kind == "timer" else "Напомню"
+        self._log_chat("assistant", f"{title} {due.strftime('%H:%M %d.%m')}: {entry['label']}")
+        logging.info(f"{'Таймер' if kind == 'timer' else 'Напоминание'} установлено: {label} на {due}")
+
+    def _list_reminders(self):
+        items = self.reminder_manager.pending()
+        if not items:
+            self._log_chat("assistant", "Активных напоминаний нет. Пример: «напомни через 10 минут сделать перерыв»")
+            return
+        lines = [f"• {r['label']} — {r['due'].strftime('%H:%M %d.%m')}" for r in items]
+        self._log_chat("assistant", "Активные напоминания:<br>" + "<br>".join(lines))
+
+    def _on_reminder(self, entry):
+        QApplication.beep()
+        kind = entry.get("kind", "reminder")
+        title = "Таймер завершён" if kind == "timer" else "Напоминание"
+
+        def snooze():
+            self.reminder_manager.add(datetime.now() + timedelta(minutes=5), entry["label"], kind)
+
+        self.toast_manager.show_toast(title, entry["label"], on_snooze=snooze)
+        self._log_chat("assistant", f"⏰ {title}: {entry['label']}")
 
     def _minimize_to_circle(self):
         self._last_page_index = self._stack.currentIndex()
@@ -1109,6 +1193,7 @@ class MainWindow(QMainWindow):
     def _apply_theme(self):
         qss = THEMES.get(self.settings.theme, THEMES["dark"])
         self.setStyleSheet(qss)
+        self.toast_manager.set_theme(self.settings.theme)
         if hasattr(self, "_jarvis_bg"):
             self._jarvis_bg.set_theme(self.settings.theme)
         self._load_chat_history()
@@ -1175,6 +1260,8 @@ class MainWindow(QMainWindow):
     def _on_update_info(self, info, manual):
         self._update_checker.deleteLater()
         self._update_checker = None
+        if manual:
+            self._status.setText(random.choice(["Пип готов к работе", "Пипарик мощь", "Пип крутой"]))
 
         if not info or "error" in info:
             err = info.get("error") if info else "пустой ответ"
