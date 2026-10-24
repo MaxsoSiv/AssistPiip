@@ -1,5 +1,6 @@
 import psutil
 import webbrowser
+from urllib.parse import quote
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QTableWidget,
     QTableWidgetItem, QHeaderView, QMessageBox, QAbstractItemView, QLabel
@@ -183,7 +184,7 @@ class MonitorPage(QWidget):
         self.table.setCellWidget(row, 4, action_widget)
 
     def _search_process(self, name):
-        url = f"https://www.google.com/search?q=что+за+процесс+{name}"
+        url = "https://www.google.com/search?q=" + quote(f"что за процесс {name}")
         webbrowser.open(url)
 
     def _kill_process(self, pid, name):

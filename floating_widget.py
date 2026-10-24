@@ -1,10 +1,11 @@
-from PySide6.QtWidgets import QWidget
+from PySide6.QtWidgets import QWidget, QMenu
 from PySide6.QtCore import Qt, QPoint, Signal, QDateTime, QTimer
-from PySide6.QtGui import QPainter, QColor, QBrush, QPen, QLinearGradient, QFont
+from PySide6.QtGui import QPainter, QColor, QBrush, QPen, QLinearGradient, QFont, QGuiApplication, QAction
 
 
 class FloatingCircle(QWidget):
     clicked = Signal()
+    exit_requested = Signal()
 
     def __init__(self, parent=None, theme: str = "blue", opacity: float = 0.85):
         super().__init__(parent)
@@ -15,6 +16,8 @@ class FloatingCircle(QWidget):
         )
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.setFixedSize(64, 64)
+        self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.customContextMenuRequested.connect(self._show_menu)
         self._theme = theme
         self._opacity = opacity
         self._drag_pos = QPoint()
@@ -26,6 +29,22 @@ class FloatingCircle(QWidget):
         self._pulse_timer = QTimer(self)
         self._pulse_timer.timeout.connect(self._update_pulse)
         self._pulse_timer.start(50)
+
+    def _show_menu(self, pos):
+        menu = QMenu(self)
+        show_action = QAction("Показать окно", menu)
+        show_action.triggered.connect(self.clicked.emit)
+        menu.addAction(show_action)
+        exit_action = QAction("Выход", menu)
+        exit_action.triggered.connect(self.exit_requested.emit)
+        menu.addAction(exit_action)
+        menu.exec(self.mapToGlobal(pos))
+
+    def clamp_to_screen(self):
+        screen = QGuiApplication.primaryScreen().availableGeometry()
+        x = min(max(self.x(), screen.left()), screen.right() - self.width())
+        y = min(max(self.y(), screen.top()), screen.bottom() - self.height())
+        self.move(x, y)
 
     def set_opacity(self, value: float):
         self._opacity = value
@@ -101,4 +120,6 @@ class FloatingCircle(QWidget):
             moved = (event.globalPosition().toPoint() - self._press_pos).manhattanLength()
             if elapsed < 250 and moved < 5:
                 self.clicked.emit()
+            else:
+                self.clamp_to_screen()
             event.accept()

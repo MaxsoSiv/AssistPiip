@@ -156,12 +156,6 @@ def _create_icon_set(output_dir):
     d.line([17, 7, 7, 17], fill=c, width=2)
     icons["close"] = img
 
-    img = Image.new("RGBA", (s, s), (0, 0, 0, 0))
-    d = ImageDraw.Draw(img)
-    d.text((4, 6), "A", fill=c, font=ImageFont.load_default())
-    d.text((12, 6), "文", fill=c, font=ImageFont.load_default())
-    icons["translate"] = img
-
     for name, image in icons.items():
         image.save(os.path.join(output_dir, f"{name}.png"))
 

@@ -11,13 +11,6 @@ from PySide6.QtGui import QFont
 
 
 class SafeEvaluator:
-    ALLOWED_NODES = (
-        ast.Expression, ast.BinOp, ast.UnaryOp, ast.Num, ast.Constant,
-        ast.Add, ast.Sub, ast.Mult, ast.Div, ast.FloorDiv, ast.Mod,
-        ast.Pow, ast.USub, ast.UAdd, ast.Call, ast.Name, ast.Load,
-        ast.BitAnd, ast.BitOr, ast.BitXor, ast.LShift, ast.RShift, ast.Invert
-    )
-
     ALLOWED_FUNCS = {
         'sin': math.sin, 'cos': math.cos, 'tan': math.tan,
         'asin': math.asin, 'acos': math.acos, 'atan': math.atan,
@@ -36,11 +29,11 @@ class SafeEvaluator:
 
     @classmethod
     def evaluate(cls, expr: str) -> float | int:
-        expr = expr.replace("^", "**")
+        expr = expr.replace("XOR", "\x00")
+        expr = expr.replace("AND", "&").replace("OR", "|").replace("NOT", "~")
+        expr = expr.replace("^", "**").replace("\x00", "^")
         expr = re.sub(r'(\d+)!', r'factorial(\1)', expr)
         expr = expr.replace("mod", "%")
-        expr = expr.replace("AND", "&").replace("OR", "|").replace("XOR", "^")
-        expr = expr.replace("NOT", "~").replace("<<", "<<").replace(">>", ">>")
 
         tree = ast.parse(expr, mode='eval')
         return cls._eval_node(tree.body)
@@ -321,8 +314,8 @@ class CalculatorPage(QWidget):
     def _convert_to_decimal(self, expr, base):
         if base == 10:
             return expr
-        expr = expr.replace("AND", "&").replace("OR", "|").replace("XOR", "^").replace("NOT", "~")
-        expr = expr.replace("<<", "<<").replace(">>", ">>")
+
+        expr = expr.replace("XOR", "\x00").replace("AND", "&").replace("OR", "|").replace("NOT", "~")
 
         if base == 16:
             expr = re.sub(r'\b[0-9A-F]+\b', lambda m: str(int(m.group(0), 16)), expr)

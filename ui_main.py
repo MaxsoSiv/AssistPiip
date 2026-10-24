@@ -10,7 +10,7 @@ from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLineEdit,
     QPushButton, QLabel, QStackedWidget, QListWidget, QListWidgetItem,
     QTextEdit, QDialog, QFormLayout, QComboBox, QCheckBox, QSlider,
-    QFileDialog, QMessageBox, QMenu, QFrame, QGridLayout, QScrollArea, QSizePolicy
+    QFileDialog, QMessageBox, QMenu, QFrame, QGridLayout, QScrollArea, QSizePolicy, QSizeGrip
 )
 from PySide6.QtCore import Qt, QBuffer, QIODevice, QSize
 from PySide6.QtGui import QIcon, QPixmapCache, QPixmap, QPainter, QLinearGradient, QColor, QFont, QCursor
@@ -144,10 +144,20 @@ class MainWindow(QMainWindow):
 
         root.addLayout(body, 1)
 
+        status_row = QWidget()
+        status_row.setObjectName("statusRow")
+        status_row.setFixedHeight(24)
+        status_layout = QHBoxLayout(status_row)
+        status_layout.setContentsMargins(8, 0, 0, 0)
+        status_layout.setSpacing(0)
+
         self._status = QLabel(random.choice(["Пип крутой", "Пипарик мощь", "Пип готов к работе"]))
         self._status.setObjectName("statusLabel")
-        self._status.setFixedHeight(24)
-        root.addWidget(self._status)
+        status_layout.addWidget(self._status)
+
+        status_layout.addStretch()
+        status_layout.addWidget(QSizeGrip(self), 0, Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignBottom)
+        root.addWidget(status_row)
 
     def _create_title_bar(self) -> QWidget:
         bar = QFrame()
@@ -208,6 +218,7 @@ class MainWindow(QMainWindow):
         bar.mousePressEvent = self._title_press
         bar.mouseMoveEvent = self._title_move
         bar.mouseReleaseEvent = self._title_release
+        bar.mouseDoubleClickEvent = self._title_double_click
 
         return bar
 
@@ -240,6 +251,8 @@ class MainWindow(QMainWindow):
             btn.setObjectName("navButton")
             btn.setCheckable(True)
             btn.setFixedHeight(38)
+            btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+            btn.setCursor(Qt.CursorShape.PointingHandCursor)
             if icon_name in self._icons:
                 btn.setIcon(self._icons[icon_name])
             btn.clicked.connect(lambda checked, idx=index: self._on_nav(idx))
@@ -248,9 +261,15 @@ class MainWindow(QMainWindow):
 
         layout.addStretch()
 
+        version_label = QLabel("v1.0.0 Beta")
+        version_label.setObjectName("versionLabel")
+        layout.addWidget(version_label)
+
         self._collapse_btn = QPushButton("Свернуть")
         self._collapse_btn.setObjectName("sidebarBottom")
         self._collapse_btn.setFixedHeight(34)
+        self._collapse_btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self._collapse_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._collapse_btn.setIcon(self._icons.get("collapse", QIcon()))
         self._collapse_btn.clicked.connect(self._minimize_to_circle)
         layout.addWidget(self._collapse_btn)
@@ -258,6 +277,8 @@ class MainWindow(QMainWindow):
         self._exit_btn = QPushButton("Выход")
         self._exit_btn.setObjectName("sidebarExit")
         self._exit_btn.setFixedHeight(34)
+        self._exit_btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self._exit_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._exit_btn.setIcon(self._icons.get("exit", QIcon()))
         self._exit_btn.clicked.connect(self._full_exit)
         layout.addWidget(self._exit_btn)
@@ -286,7 +307,30 @@ class MainWindow(QMainWindow):
         self._input.setPlaceholderText("Введите команду...")
         self._input.setFixedHeight(44)
         self._input.returnPressed.connect(self._execute_input)
+        self._input.setToolTip("Enter — выполнить, стрелки вверх/вниз — история команд")
         input_row.addWidget(self._input, 1)
+
+        self._input_history = []
+        self._hist_index = 0
+
+        def input_key_press(event):
+            if event.key() == Qt.Key.Key_Up and self._input_history:
+                self._hist_index = max(self._hist_index - 1, -len(self._input_history))
+                self._input.setText(self._input_history[self._hist_index])
+                return
+            if event.key() == Qt.Key.Key_Down:
+                if not self._input_history:
+                    return
+                self._hist_index += 1
+                if self._hist_index >= 0:
+                    self._hist_index = 0
+                    self._input.clear()
+                else:
+                    self._input.setText(self._input_history[self._hist_index])
+                return
+            QLineEdit.keyPressEvent(self._input, event)
+
+        self._input.keyPressEvent = input_key_press
 
         run_btn = QPushButton("Выполнить")
         run_btn.setObjectName("primaryButton")
@@ -630,7 +674,7 @@ class MainWindow(QMainWindow):
         layout.addLayout(top)
 
         self._clipboard_search = QLineEdit()
-        self._clipboard_search.setPlaceholderText("Поиск по дате (ГГГГ-ММ-ДД)...")
+        self._clipboard_search.setPlaceholderText("Поиск по содержимому или дате (ГГГГ-ММ-ДД)...")
         self._clipboard_search.textChanged.connect(self._on_clipboard_search_changed)
         layout.addWidget(self._clipboard_search)
 
@@ -726,20 +770,13 @@ class MainWindow(QMainWindow):
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
 
         grad = QLinearGradient(0, 0, 48, 48)
-        if self.settings.theme == "dark":
+        if self.settings.theme == "sunset":
             if is_assistant:
-                grad.setColorAt(0.0, QColor(43, 108, 176))
-                grad.setColorAt(1.0, QColor(0, 180, 216))
-            else:
                 grad.setColorAt(0.0, QColor(252, 163, 17))
                 grad.setColorAt(1.0, QColor(255, 107, 107))
-        elif self.settings.theme == "light":
-            if is_assistant:
-                grad.setColorAt(0.0, QColor(43, 108, 176))
-                grad.setColorAt(1.0, QColor(0, 180, 216))
             else:
-                grad.setColorAt(0.0, QColor(252, 163, 17))
-                grad.setColorAt(1.0, QColor(255, 107, 107))
+                grad.setColorAt(0.0, QColor(255, 107, 107))
+                grad.setColorAt(1.0, QColor(252, 163, 17))
         elif self.settings.theme == "ocean":
             if is_assistant:
                 grad.setColorAt(0.0, QColor(0, 119, 182))
@@ -747,13 +784,13 @@ class MainWindow(QMainWindow):
             else:
                 grad.setColorAt(0.0, QColor(255, 183, 3))
                 grad.setColorAt(1.0, QColor(251, 133, 0))
-        elif self.settings.theme == "sunset":
+        else:
             if is_assistant:
+                grad.setColorAt(0.0, QColor(43, 108, 176))
+                grad.setColorAt(1.0, QColor(0, 180, 216))
+            else:
                 grad.setColorAt(0.0, QColor(252, 163, 17))
                 grad.setColorAt(1.0, QColor(255, 107, 107))
-            else:
-                grad.setColorAt(0.0, QColor(255, 107, 107))
-                grad.setColorAt(1.0, QColor(252, 163, 17))
 
         painter.setBrush(grad)
         painter.setPen(Qt.PenStyle.NoPen)
@@ -821,6 +858,11 @@ class MainWindow(QMainWindow):
             return
 
         self._input.clear()
+        if not self._input_history or self._input_history[-1] != text:
+            self._input_history.append(text)
+            if len(self._input_history) > 50:
+                self._input_history.pop(0)
+        self._hist_index = 0
         self._log_chat("user", text)
         logging.info(f"Ввод команды: {text}")
 
@@ -950,10 +992,12 @@ class MainWindow(QMainWindow):
         if self._floating is None:
             self._floating = FloatingCircle(theme=self.settings.circle_theme, opacity=self.settings.circle_opacity)
             self._floating.clicked.connect(self._restore_from_circle)
+            self._floating.exit_requested.connect(self._full_exit)
         self._floating.set_theme(self.settings.circle_theme)
         self._floating.set_opacity(self.settings.circle_opacity)
         self._floating.show()
         self._floating.move(self.cursor().pos())
+        self._floating.clamp_to_screen()
         logging.debug("Свернуто в кружок")
 
     def _restore_from_circle(self):
@@ -1060,6 +1104,10 @@ class MainWindow(QMainWindow):
 
     def _title_press(self, event):
         if event.button() == Qt.MouseButton.LeftButton:
+            if self.isMaximized():
+                self.showNormal()
+                pos = event.globalPosition().toPoint()
+                self.move(pos.x() - self.width() // 2, max(pos.y() - int(event.position().y()), 0))
             self._drag_pos = event.globalPosition().toPoint() - self.frameGeometry().topLeft()
 
     def _title_move(self, event):
@@ -1068,6 +1116,10 @@ class MainWindow(QMainWindow):
 
     def _title_release(self, event):
         self._drag_pos = None
+
+    def _title_double_click(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            self._toggle_max()
 
     def _add_command_dialog(self):
         dlg = CommandDialog(self.settings, self)
@@ -1222,7 +1274,9 @@ class MainWindow(QMainWindow):
         self._clipboard_list.clear()
         for entry in self.clipboard_manager.all_entries():
             if self._clipboard_search_query:
-                if self._clipboard_search_query.lower() not in entry.created.lower():
+                q = self._clipboard_search_query.lower()
+                haystack = entry.content if entry.kind == "text" else os.path.basename(entry.content)
+                if q not in entry.created.lower() and q not in haystack.lower():
                     continue
 
             item = QListWidgetItem()
@@ -1419,8 +1473,8 @@ class CommandDialog(QDialog):
         if not self._trigger.text().strip():
             QMessageBox.warning(self, "Ошибка", "Триггер не может быть пустым")
             return
-        if not self._actions:
-            QMessageBox.warning(self, "Ошибка", "Добавьте хотя бы одно действие")
+        if not any(value_edit.text().strip() for _, _, value_edit in self._actions):
+            QMessageBox.warning(self, "Ошибка", "Заполните хотя бы одно действие")
             return
         self.accept()
 

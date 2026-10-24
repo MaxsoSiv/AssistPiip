@@ -74,9 +74,6 @@ class NotesManager(QObject):
         return -1
 
     def all_notes(self) -> list[Note]:
-        # Закреплённые сверху, внутри групп — сначала новые.
-        # Двухпроходная стабильная сортировка: сначала по дате (новые выше),
-        # затем по закреплению (pinned не ломает порядок внутри групп).
         by_date = sorted(self._notes, key=lambda n: n.created, reverse=True)
         return sorted(by_date, key=lambda n: not n.pinned)
 
