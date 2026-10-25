@@ -72,6 +72,10 @@ class CommandManager(QObject):
         self._commands.append(command)
         self._save()
 
+    def import_commands(self, commands: list):
+        self._commands = list(commands)
+        self._save()
+
     def remove_command(self, trigger: str):
         self._commands = [c for c in self._commands if c.trigger != trigger]
         self._save()
@@ -93,11 +97,21 @@ class CommandManager(QObject):
             QTimer.singleShot(i * 1500, lambda a=action: self._run_action(a))
 
     def _run_action(self, action: dict):
+        import subprocess
         from utils import open_path, open_url
 
         kind = action.get("type")
         value = action.get("value", "")
         if kind == "url":
             open_url(value, self._settings.browser_path)
+        elif kind == "script":
+            try:
+                subprocess.Popen(
+                    ["cmd", "/c", value],
+                    creationflags=subprocess.CREATE_NO_WINDOW,
+                    close_fds=True,
+                )
+            except OSError as e:
+                logging.error(f"Не удалось запустить скрипт {value}: {e}")
         elif kind in ("app", "file"):
             open_path(value)

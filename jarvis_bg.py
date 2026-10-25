@@ -41,6 +41,12 @@ class JarvisBackground(QWidget):
         elif theme_name == "sunset":
             self._accent = QColor(252, 163, 17)
             self._base = QColor(43, 13, 13)
+        elif theme_name == "purple":
+            self._accent = QColor(139, 92, 246)
+            self._base = QColor(21, 16, 31)
+        elif theme_name == "pink":
+            self._accent = QColor(236, 72, 153)
+            self._base = QColor(31, 16, 22)
         self.update()
 
     def set_blurred(self, blurred):

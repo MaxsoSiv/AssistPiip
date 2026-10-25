@@ -46,114 +46,114 @@ def generate_app_icon():
     return icon
 
 
-def _draw_line_icon(draw, points, width=2, color=(130, 130, 130, 255)):
+def _draw_line_icon(draw, points, width=3, color=(148, 148, 148, 255)):
     draw.line(points, fill=color, width=width, joint="curve")
 
 
 def _create_icon_set(output_dir):
     os.makedirs(output_dir, exist_ok=True)
     s = 24
-    c = (130, 130, 130, 255)
+    c = (148, 148, 148, 255)
     icons = {}
 
     img = Image.new("RGBA", (s, s), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
-    d.line([(4, 12), (12, 4), (20, 12)], fill=c, width=2, joint="curve")
-    d.line([(6, 10), (6, 20), (18, 20), (18, 10)], fill=c, width=2, joint="curve")
-    d.line([(10, 20), (10, 16), (14, 16), (14, 20)], fill=c, width=2, joint="curve")
+    d.line([(4, 12), (12, 4), (20, 12)], fill=c, width=3, joint="curve")
+    d.line([(6, 10), (6, 20), (18, 20), (18, 10)], fill=c, width=3, joint="curve")
+    d.line([(10, 20), (10, 16), (14, 16), (14, 20)], fill=c, width=3, joint="curve")
     icons["main"] = img
 
     img = Image.new("RGBA", (s, s), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
-    d.ellipse([7, 7, 17, 17], outline=c, width=2)
-    d.ellipse([10, 10, 14, 14], outline=c, width=2)
-    d.line([12, 4, 12, 7], fill=c, width=2)
-    d.line([12, 17, 12, 20], fill=c, width=2)
-    d.line([4, 12, 7, 12], fill=c, width=2)
-    d.line([17, 12, 20, 12], fill=c, width=2)
-    d.line([6, 6, 8, 8], fill=c, width=2)
-    d.line([16, 16, 18, 18], fill=c, width=2)
-    d.line([6, 18, 8, 16], fill=c, width=2)
-    d.line([16, 8, 18, 6], fill=c, width=2)
+    d.ellipse([7, 7, 17, 17], outline=c, width=3)
+    d.ellipse([10, 10, 14, 14], outline=c, width=3)
+    d.line([12, 4, 12, 7], fill=c, width=3)
+    d.line([12, 17, 12, 20], fill=c, width=3)
+    d.line([4, 12, 7, 12], fill=c, width=3)
+    d.line([17, 12, 20, 12], fill=c, width=3)
+    d.line([6, 6, 8, 8], fill=c, width=3)
+    d.line([16, 16, 18, 18], fill=c, width=3)
+    d.line([6, 18, 8, 16], fill=c, width=3)
+    d.line([16, 8, 18, 6], fill=c, width=3)
     icons["settings"] = img
 
     img = Image.new("RGBA", (s, s), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
-    d.rounded_rectangle([4, 4, 20, 20], outline=c, width=2, radius=3)
-    d.line([12, 8, 12, 16], fill=c, width=2)
-    d.line([8, 12, 16, 12], fill=c, width=2)
+    d.rounded_rectangle([4, 4, 20, 20], outline=c, width=3, radius=3)
+    d.line([12, 8, 12, 16], fill=c, width=3)
+    d.line([8, 12, 16, 12], fill=c, width=3)
     icons["calculator"] = img
 
     img = Image.new("RGBA", (s, s), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
-    d.rounded_rectangle([4, 4, 20, 20], outline=c, width=2, radius=2)
-    d.line([8, 9, 16, 9], fill=c, width=2)
-    d.line([8, 13, 16, 13], fill=c, width=2)
-    d.line([8, 17, 13, 17], fill=c, width=2)
+    d.rounded_rectangle([4, 4, 20, 20], outline=c, width=3, radius=2)
+    d.line([8, 9, 16, 9], fill=c, width=3)
+    d.line([8, 13, 16, 13], fill=c, width=3)
+    d.line([8, 17, 13, 17], fill=c, width=3)
     icons["notes"] = img
 
     img = Image.new("RGBA", (s, s), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
-    d.line([5, 6, 19, 6], fill=c, width=2)
-    d.line([5, 12, 19, 12], fill=c, width=2)
-    d.line([5, 18, 13, 18], fill=c, width=2)
+    d.line([5, 6, 19, 6], fill=c, width=3)
+    d.line([5, 12, 19, 12], fill=c, width=3)
+    d.line([5, 18, 13, 18], fill=c, width=3)
     icons["commands"] = img
 
     img = Image.new("RGBA", (s, s), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
-    d.rounded_rectangle([4, 7, 20, 18], outline=c, width=2, radius=2)
-    d.line([10, 7, 10, 5], fill=c, width=2)
-    d.line([14, 7, 14, 5], fill=c, width=2)
+    d.rounded_rectangle([4, 7, 20, 18], outline=c, width=3, radius=2)
+    d.line([10, 7, 10, 5], fill=c, width=3)
+    d.line([14, 7, 14, 5], fill=c, width=3)
     icons["clipboard"] = img
 
     img = Image.new("RGBA", (s, s), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
-    d.rounded_rectangle([3, 4, 21, 17], outline=c, width=2, radius=2)
-    d.line([12, 17, 12, 20], fill=c, width=2)
-    d.line([8, 20, 16, 20], fill=c, width=2)
-    d.line([5, 11, 8, 11, 10, 7, 14, 15, 16, 11, 19, 11], fill=c, width=2, joint="curve")
+    d.rounded_rectangle([3, 4, 21, 17], outline=c, width=3, radius=2)
+    d.line([12, 17, 12, 20], fill=c, width=3)
+    d.line([8, 20, 16, 20], fill=c, width=3)
+    d.line([5, 11, 8, 11, 10, 7, 14, 15, 16, 11, 19, 11], fill=c, width=3, joint="curve")
     icons["monitor"] = img
 
     img = Image.new("RGBA", (s, s), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
-    d.arc([8, 4, 16, 20], 0, 180, fill=c, width=2)
-    d.line([8, 12, 8, 20], fill=c, width=2)
-    d.line([16, 12, 16, 20], fill=c, width=2)
+    d.arc([8, 4, 16, 20], 0, 180, fill=c, width=3)
+    d.line([8, 12, 8, 20], fill=c, width=3)
+    d.line([16, 12, 16, 20], fill=c, width=3)
     icons["collapse"] = img
 
     img = Image.new("RGBA", (s, s), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
-    d.line([7, 7, 17, 17], fill=c, width=2)
-    d.line([17, 7, 7, 17], fill=c, width=2)
+    d.line([7, 7, 17, 17], fill=c, width=3)
+    d.line([17, 7, 7, 17], fill=c, width=3)
     icons["exit"] = img
 
     img = Image.new("RGBA", (s, s), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
-    d.ellipse([8, 4, 16, 12], outline=c, width=2)
-    d.line([12, 12, 12, 20], fill=c, width=2)
-    d.line([8, 16, 16, 16], fill=c, width=2)
+    d.ellipse([8, 4, 16, 12], outline=c, width=3)
+    d.line([12, 12, 12, 20], fill=c, width=3)
+    d.line([8, 16, 16, 16], fill=c, width=3)
     icons["pin_on"] = img
 
     img = Image.new("RGBA", (s, s), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
-    d.ellipse([8, 4, 16, 12], outline=c, width=2)
-    d.line([12, 12, 12, 20], fill=c, width=2)
+    d.ellipse([8, 4, 16, 12], outline=c, width=3)
+    d.line([12, 12, 12, 20], fill=c, width=3)
     icons["pin_off"] = img
 
     img = Image.new("RGBA", (s, s), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
-    d.line([8, 12, 16, 12], fill=c, width=2)
+    d.line([8, 12, 16, 12], fill=c, width=3)
     icons["minimize"] = img
 
     img = Image.new("RGBA", (s, s), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
-    d.rounded_rectangle([7, 7, 17, 17], outline=c, width=2, radius=1)
+    d.rounded_rectangle([7, 7, 17, 17], outline=c, width=3, radius=1)
     icons["maximize"] = img
 
     img = Image.new("RGBA", (s, s), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
-    d.line([7, 7, 17, 17], fill=c, width=2)
-    d.line([17, 7, 7, 17], fill=c, width=2)
+    d.line([7, 7, 17, 17], fill=c, width=3)
+    d.line([17, 7, 7, 17], fill=c, width=3)
     icons["close"] = img
 
     img = Image.new("RGBA", (s, s), (0, 0, 0, 0))
@@ -164,7 +164,7 @@ def _create_icon_set(output_dir):
         letter_font = ImageFont.load_default()
     d.text((1, 10), "Я", fill=c, font=letter_font)
     d.text((12, 1), "A", fill=c, font=letter_font)
-    d.line([(6, 16), (16, 6)], fill=c, width=2)
+    d.line([(6, 16), (16, 6)], fill=c, width=3)
     d.polygon([(10, 5), (17, 4), (16, 11)], fill=c)
     icons["translate"] = img
 

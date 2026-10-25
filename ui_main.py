@@ -1,5 +1,6 @@
 import os
 import sys
+import json
 import logging
 import shiboken6
 import random
@@ -288,7 +289,8 @@ class MainWindow(QMainWindow):
             btn = QPushButton(text)
             btn.setObjectName("navButton")
             btn.setCheckable(True)
-            btn.setFixedHeight(38)
+            btn.setFixedHeight(42)
+            btn.setIconSize(QSize(18, 18))
             btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
             btn.setCursor(Qt.CursorShape.PointingHandCursor)
             if icon_name in self._icons:
@@ -429,20 +431,14 @@ class MainWindow(QMainWindow):
             btn = QPushButton(display_text)
             btn.setObjectName("quickButton")
             btn.setFixedHeight(36)
+            btn.setCursor(Qt.CursorShape.PointingHandCursor)
             btn.clicked.connect(lambda checked, c=trigger: self._quick_command(c))
 
             del_btn = QPushButton("×")
-            del_btn.setFixedSize(24, 24)
-            del_btn.setStyleSheet("""
-                QPushButton {
-                    background: transparent;
-                    color: #aaa;
-                    font-size: 16px;
-                    font-weight: bold;
-                    border: none;
-                }
-                QPushButton:hover { color: #ff4d4d; }
-            """)
+            del_btn.setObjectName("quickDeleteButton")
+            del_btn.setFixedSize(22, 22)
+            del_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+            del_btn.setToolTip("Убрать из быстрых")
             del_btn.clicked.connect(lambda checked, c=trigger: self._confirm_remove_quick(c))
 
             cmd_layout.addWidget(btn)
@@ -451,18 +447,9 @@ class MainWindow(QMainWindow):
             self._quick_layout.addWidget(cmd_widget)
 
         add_btn = QPushButton("+")
+        add_btn.setObjectName("quickAddButton")
         add_btn.setFixedSize(36, 36)
-        add_btn.setStyleSheet("""
-            QPushButton {
-                background: rgba(43, 45, 49, 0.5);
-                color: #ddd;
-                border: 1px dashed #555;
-                border-radius: 18px;
-                font-size: 18px;
-                font-weight: bold;
-            }
-            QPushButton:hover { background: #3a3d42; }
-        """)
+        add_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         add_btn.setToolTip("Добавить быструю команду")
         add_btn.clicked.connect(self._show_add_quick_menu)
         self._quick_layout.addWidget(add_btn)
@@ -538,7 +525,7 @@ class MainWindow(QMainWindow):
         form.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
 
         self._theme_combo = QComboBox()
-        self._theme_combo.addItems(["dark", "light", "ocean", "sunset"])
+        self._theme_combo.addItems(["dark", "light", "ocean", "sunset", "purple", "pink"])
         self._theme_combo.setCurrentText(self.settings.theme)
         self._theme_combo.currentTextChanged.connect(self._on_theme_changed)
         form.addRow("Тема окна:", self._theme_combo)
@@ -556,7 +543,7 @@ class MainWindow(QMainWindow):
         form.addRow("Прозрачность кружка:", self._circle_opacity_slider)
 
         self._circle_theme_combo = QComboBox()
-        self._circle_theme_combo.addItems(["blue", "green", "red", "purple", "orange"])
+        self._circle_theme_combo.addItems(["blue", "green", "red", "purple", "orange", "pink", "gold"])
         self._circle_theme_combo.setCurrentText(self.settings.circle_theme)
         self._circle_theme_combo.currentTextChanged.connect(self._on_circle_theme_changed)
         form.addRow("Тема кружка:", self._circle_theme_combo)
@@ -598,6 +585,18 @@ class MainWindow(QMainWindow):
         update_row.addWidget(self._check_update_btn)
         update_row.addStretch()
         form.addRow("Обновления:", update_row)
+
+        backup_row = QHBoxLayout()
+        export_btn = QPushButton("Экспорт настроек")
+        export_btn.setObjectName("primaryButton")
+        export_btn.clicked.connect(self._export_settings)
+        backup_row.addWidget(export_btn)
+        import_btn = QPushButton("Импорт из файла")
+        import_btn.setObjectName("secondaryButton")
+        import_btn.clicked.connect(self._import_settings)
+        backup_row.addWidget(import_btn)
+        backup_row.addStretch()
+        form.addRow("Резервная копия:", backup_row)
 
         self._autostart_check = QCheckBox("Запускать при старте Windows")
         self._autostart_check.setChecked(autostart_mod.is_autostart_enabled())
@@ -862,6 +861,20 @@ class MainWindow(QMainWindow):
             else:
                 grad.setColorAt(0.0, QColor(255, 183, 3))
                 grad.setColorAt(1.0, QColor(251, 133, 0))
+        elif self.settings.theme == "purple":
+            if is_assistant:
+                grad.setColorAt(0.0, QColor(139, 92, 246))
+                grad.setColorAt(1.0, QColor(196, 140, 255))
+            else:
+                grad.setColorAt(0.0, QColor(255, 183, 3))
+                grad.setColorAt(1.0, QColor(251, 133, 0))
+        elif self.settings.theme == "pink":
+            if is_assistant:
+                grad.setColorAt(0.0, QColor(236, 72, 153))
+                grad.setColorAt(1.0, QColor(244, 114, 182))
+            else:
+                grad.setColorAt(0.0, QColor(252, 163, 17))
+                grad.setColorAt(1.0, QColor(255, 107, 107))
         else:
             if is_assistant:
                 grad.setColorAt(0.0, QColor(43, 108, 176))
@@ -1247,6 +1260,110 @@ class MainWindow(QMainWindow):
 
     def _on_updates_toggled(self, checked: bool):
         self.settings.check_updates = checked
+
+    def _export_settings(self):
+        default_path = os.path.join(os.path.expanduser("~"), "assistpiip-backup.json")
+        path, _ = QFileDialog.getSaveFileName(self, "Экспорт настроек", default_path, "JSON (*.json)")
+        if not path:
+            return
+
+        payload = {
+            "app": "AssistPiip",
+            "version": APP_VERSION,
+            "exported": datetime.now().isoformat(timespec="seconds"),
+            "settings": {
+                "theme": self.settings.theme,
+                "window_opacity": self.settings.window_opacity,
+                "circle_opacity": self.settings.circle_opacity,
+                "circle_theme": self.settings.circle_theme,
+                "browser_path": self.settings.browser_path,
+                "autostart": self.settings.autostart,
+                "developer_mode": self.settings.developer_mode,
+                "always_on_top": self.settings.always_on_top,
+                "hotkey": self.settings.hotkey,
+                "check_updates": self.settings.check_updates,
+                "quick_commands": self.settings.quick_commands,
+            },
+            "commands": [c.to_dict() for c in self.command_manager.all_commands()],
+        }
+
+        try:
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump(payload, f, ensure_ascii=False, indent=2)
+        except OSError as e:
+            QMessageBox.warning(self, "Экспорт", f"Не удалось сохранить файл: {e}")
+            return
+
+        self._status.setText(f"Настройки экспортированы: {os.path.basename(path)}")
+        logging.info(f"Экспорт настроек и команд: {path}")
+
+    def _import_settings(self):
+        path, _ = QFileDialog.getOpenFileName(self, "Импорт настроек", os.path.expanduser("~"), "JSON (*.json)")
+        if not path:
+            return
+
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                payload = json.load(f)
+            s = payload["settings"]
+            commands = [Command.from_dict(c) for c in payload.get("commands", [])]
+        except (OSError, json.JSONDecodeError, KeyError, TypeError) as e:
+            QMessageBox.warning(self, "Импорт", f"Файл повреждён или не подходит: {e}")
+            return
+
+        reply = QMessageBox.question(
+            self, "Импорт",
+            f"Заменить текущие настройки и команды данными из файла?\n"
+            f"Экспортировано: {payload.get('exported', '—')} · команд: {len(commands)}",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+        )
+        if reply != QMessageBox.StandardButton.Yes:
+            return
+
+        self.settings.theme = s.get("theme", self.settings.theme)
+        self.settings.window_opacity = float(s.get("window_opacity", self.settings.window_opacity))
+        self.settings.circle_opacity = float(s.get("circle_opacity", self.settings.circle_opacity))
+        self.settings.circle_theme = s.get("circle_theme", self.settings.circle_theme)
+        self.settings.browser_path = s.get("browser_path", "")
+        self.settings.developer_mode = bool(s.get("developer_mode", False))
+        self.settings.always_on_top = bool(s.get("always_on_top", False))
+        self.settings.check_updates = bool(s.get("check_updates", True))
+        if "quick_commands" in s:
+            self.settings.quick_commands = list(s["quick_commands"])
+
+        hotkey = s.get("hotkey")
+        if hotkey:
+            ok, err = self._hotkey.register(hotkey)
+            if ok:
+                self.settings.hotkey = hotkey
+
+        set_always_on_top(self, self.settings.always_on_top)
+        self._pin_btn.setIcon(self._icons.get("pin_on" if self.settings.always_on_top else "pin_off", QIcon()))
+
+        if "autostart" in s:
+            if autostart_mod.set_autostart(bool(s["autostart"])):
+                self.settings.autostart = bool(s["autostart"])
+
+        self.command_manager.import_commands(commands)
+        self._sync_settings_widgets()
+        if hasattr(self, "_quick_layout"):
+            self._refresh_quick_commands()
+        self._apply_opacity(self.settings.window_opacity)
+        self._status.setText("Настройки импортированы")
+        logging.info(f"Импорт настроек и команд из {path}")
+
+    def _sync_settings_widgets(self):
+        if not hasattr(self, "_theme_combo") or not shiboken6.isValid(self._theme_combo):
+            return
+        self._theme_combo.setCurrentText(self.settings.theme)
+        self._opacity_slider.setValue(int(self.settings.window_opacity * 100))
+        self._circle_opacity_slider.setValue(int(self.settings.circle_opacity * 100))
+        self._circle_theme_combo.setCurrentText(self.settings.circle_theme)
+        self._browser_path_edit.setText(self.settings.browser_path)
+        self._hotkey_edit.setKeySequence(QKeySequence(self.settings.hotkey))
+        self._autostart_check.setChecked(autostart_mod.is_autostart_enabled())
+        self._updates_check.setChecked(self.settings.check_updates)
+        self._dev_mode_check.setChecked(self.settings.developer_mode)
 
     def _check_updates(self, manual=False):
         if self._update_checker is not None:
@@ -1657,7 +1774,8 @@ class CommandDialog(QDialog):
 
         layout.addLayout(form)
 
-        actions_label = QLabel("Действия (до 10):")
+        actions_label = QLabel("Действия (до 10). Тип script запускает .bat/.cmd/.ps1/.py скрыто, без окна консоли")
+        actions_label.setStyleSheet("color: #888; font-size: 11px;")
         layout.addWidget(actions_label)
 
         self._actions_container = QVBoxLayout()
@@ -1696,20 +1814,31 @@ class CommandDialog(QDialog):
         row_layout.setContentsMargins(0, 0, 0, 0)
 
         type_combo = QComboBox()
-        type_combo.addItems(["url", "app", "file"])
+        type_combo.addItems(["url", "app", "file", "script"])
         if act_type:
             type_combo.setCurrentText(act_type)
 
         value_edit = QLineEdit()
-        value_edit.setPlaceholderText("URL или путь")
+        if type_combo.currentText() == "script":
+            value_edit.setPlaceholderText("Путь к .bat / .cmd / .ps1 / .py")
+        else:
+            value_edit.setPlaceholderText("URL или путь")
         if act_val:
             value_edit.setText(act_val)
+
+        def on_type_changed(text):
+            value_edit.setPlaceholderText("Путь к .bat / .cmd / .ps1 / .py" if text == "script" else "URL или путь")
+
+        type_combo.currentTextChanged.connect(on_type_changed)
 
         browse_btn = QPushButton("...")
         browse_btn.setFixedWidth(32)
 
         def browse():
-            path, _ = QFileDialog.getOpenFileName(self, "Выберите файл")
+            if type_combo.currentText() == "script":
+                path, _ = QFileDialog.getOpenFileName(self, "Выберите скрипт", "C:\\", "Скрипты (*.bat *.cmd *.ps1 *.py);;Все файлы (*.*)")
+            else:
+                path, _ = QFileDialog.getOpenFileName(self, "Выберите файл")
             if path:
                 value_edit.setText(path)
 

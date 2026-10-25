@@ -9,6 +9,8 @@ ACCENTS = {
     "light": QColor(43, 108, 176),
     "ocean": QColor(0, 180, 216),
     "sunset": QColor(252, 163, 17),
+    "purple": QColor(139, 92, 246),
+    "pink": QColor(236, 72, 153),
 }
 
 CARD_BG = QColor(24, 26, 32)

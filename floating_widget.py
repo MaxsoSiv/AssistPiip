@@ -86,6 +86,10 @@ class FloatingCircle(QWidget):
             return QColor(150, 40, 220), QColor(200, 60, 240)
         if self._theme == "orange":
             return QColor(240, 120, 20), QColor(240, 200, 20)
+        if self._theme == "pink":
+            return QColor(236, 72, 153), QColor(255, 130, 190)
+        if self._theme == "gold":
+            return QColor(212, 175, 55), QColor(245, 210, 100)
         return QColor(60, 160, 240), QColor(60, 220, 200)
 
     def paintEvent(self, event):
