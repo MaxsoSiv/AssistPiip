@@ -499,6 +499,118 @@ details:focus-visible {
   line-height: 1.55;
 }
 
+/* ---------- Шпаргалка команд ---------- */
+
+.byline {
+  font-size: 12px;
+  color: var(--text-mute);
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  padding: 3px 10px;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.hero-author {
+  font-size: 13px;
+  color: var(--text-mute);
+}
+.hero-author b { color: var(--text-dim); font-weight: 600; }
+
+.cheatsheet {
+  padding: 72px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.cheatsheet-lead {
+  font-size: 14px;
+  color: var(--text-dim);
+  max-width: 620px;
+  margin: -12px 0 26px;
+}
+
+.cheatsheet-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.cheat {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 14px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  transition: background-color .18s ease, border-color .18s ease, transform .18s var(--ease);
+}
+.cheat:hover {
+  background: var(--bg-elev-2);
+  border-color: #4a4d52;
+  transform: translateY(-1px);
+}
+
+.cheat code {
+  font-family: var(--mono);
+  font-size: 12.5px;
+  color: var(--accent-2);
+  background: rgba(43, 108, 176, 0.10);
+  border: 1px solid rgba(43, 108, 176, 0.25);
+  border-radius: 6px;
+  padding: 2px 8px;
+  align-self: flex-start;
+}
+
+.cheat span {
+  font-size: 12.5px;
+  color: var(--text-dim);
+}
+
+/* ---------- Автор ---------- */
+
+.footer-author {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.author-avatar {
+  border-radius: 50%;
+  border: 2px solid var(--border-strong);
+  transition: border-color .2s ease, transform .25s var(--ease);
+}
+.footer-author:hover .author-avatar {
+  border-color: var(--accent-2);
+  transform: scale(1.06);
+}
+
+.author-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.author-name {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text);
+}
+
+.author-role {
+  font-size: 12px;
+  color: var(--text-mute);
+}
+
+@media (max-width: 620px) {
+  .cheatsheet-grid { grid-template-columns: 1fr 1fr; }
+  .footer-inner { justify-content: center; text-align: center; }
+}
+
+@media (max-width: 880px) {
+  .byline { display: none; }
+}
+
 /* ---------- Download ---------- */
 
 .download-row { max-width: 620px; }
@@ -557,6 +669,87 @@ details:focus-visible {
 }
 
 /* ---------- Changelog ---------- */
+
+.version-nav {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 26px;
+}
+
+.ver-arrow {
+  flex: 0 0 38px;
+  height: 38px;
+  border-radius: 10px;
+  border: 1px solid var(--border-strong);
+  background: var(--bg-elev);
+  color: var(--text-dim);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background-color .15s ease, color .15s ease, border-color .15s ease, opacity .15s ease;
+}
+.ver-arrow:hover:not(:disabled) {
+  background: var(--bg-elev-2);
+  color: var(--text);
+  border-color: #4a4d52;
+}
+.ver-arrow:disabled { opacity: 0.35; cursor: default; }
+
+.version-rail {
+  flex: 1;
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 4px 2px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+  scroll-snap-type: x proximity;
+}
+.version-rail::-webkit-scrollbar { height: 6px; }
+.version-rail::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 3px; }
+
+.ver-chip {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 8px 16px;
+  border-radius: 10px;
+  border: 1px solid var(--border-strong);
+  background: var(--bg-elev);
+  cursor: pointer;
+  scroll-snap-align: center;
+  transition: background-color .18s ease, border-color .18s ease, transform .18s var(--ease);
+}
+.ver-chip:hover {
+  background: var(--bg-elev-2);
+  transform: translateY(-1px);
+}
+.ver-chip.is-active {
+  border-color: var(--accent);
+  background: linear-gradient(180deg, rgba(49, 130, 206, 0.16), rgba(43, 108, 176, 0.08));
+}
+.ver-chip-version {
+  font-family: var(--mono);
+  font-size: 13.5px;
+  color: var(--text);
+  font-weight: 600;
+}
+.ver-chip.is-active .ver-chip-version { color: var(--accent-2); }
+.ver-chip-date {
+  font-size: 11px;
+  color: var(--text-mute);
+}
+
+.release-counter {
+  display: block;
+  font-size: 11px;
+  color: var(--text-mute);
+  margin-top: 8px;
+  font-family: var(--mono);
+}
 
 .changelog-list {
   display: flex;

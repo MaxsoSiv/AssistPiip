@@ -25,8 +25,10 @@
         <img src="assistpiip.svg" alt="" class="brand-mark" width="30" height="30">
         <span class="brand-name">AssistPiip</span>
       </a>
+      <span class="byline">by Piip</span>
       <nav class="nav-links">
         <a href="#features">Возможности</a>
+        <a href="#commands">Команды</a>
         <a href="#download">Скачать</a>
         <a href="#changelog">Изменения</a>
         <a href="#faq">Вопросы</a>
@@ -55,6 +57,7 @@
             <a class="btn btn-outline" href="#features">Что умеет</a>
           </div>
           <p class="hero-meta" id="hero-version"></p>
+          <p class="hero-author">Created by <b>Piip</b></p>
         </div>
       </div>
     </section>
@@ -127,7 +130,7 @@
             <h3>Свои триггеры</h3>
             <p>
               Задаёте слово-триггер и список действий: программа,
-              файл, URL, папка. Алиасы позволяют вызывать одно и то же разными словами.
+              файл, URL или скрипт. Алиасы позволяют вызывать одно и то же разными словами.
             </p>
           </div>
 
@@ -174,7 +177,7 @@
           <div class="feature">
             <h3>Оформление</h3>
             <p>
-              Четыре темы: Тёмная, Светлая, «Закат», «Океан».
+              Шесть тем: Тёмная, Светлая, «Закат», «Океан», «Фиолет» и «Розовая».
               Анимированный фон, прозрачность окон и кружка.
             </p>
           </div>
@@ -183,7 +186,8 @@
             <h3>Управление</h3>
             <p>
               Плавающий кружок, закрепление поверх окон, автозапуск,
-              настраиваемая горячая клавиша и автообновление.
+              настраиваемая горячая клавиша, автообновление
+              и экспорт всех настроек в один файл.
             </p>
           </div>
         </div>
@@ -232,8 +236,73 @@
     <section class="changelog" id="changelog">
       <div class="container">
         <h2 class="section-title">Изменения</h2>
+        <div class="version-nav">
+          <button class="ver-arrow" id="ver-prev" type="button" aria-label="Предыдущая версия">‹</button>
+          <div class="version-rail" id="version-rail"></div>
+          <button class="ver-arrow" id="ver-next" type="button" aria-label="Следующая версия">›</button>
+        </div>
         <div class="changelog-list" id="updates-list">
           <p class="muted">Загрузка…</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="cheatsheet" id="commands">
+      <div class="container">
+        <h2 class="section-title">Шпаргалка команд</h2>
+        <p class="cheatsheet-lead">
+          Всё это вводится в поле команды на главной странице приложения.
+          Опечатки не страшны — ассистент понимает похожие слова.
+        </p>
+        <div class="cheatsheet-grid">
+          <div class="cheat">
+            <code>браузер</code>
+            <span>открыть браузер</span>
+          </div>
+          <div class="cheat">
+            <code>проводник</code>
+            <span>открыть проводник</span>
+          </div>
+          <div class="cheat">
+            <code>айпи</code>
+            <span>показать внешний IP</span>
+          </div>
+          <div class="cheat">
+            <code>пинг 8.8.8.8</code>
+            <span>проверить соединение</span>
+          </div>
+          <div class="cheat">
+            <code>заметка купить хлеб</code>
+            <span>сохранить заметку</span>
+          </div>
+          <div class="cheat">
+            <code>заметка текст | описание</code>
+            <span>заметка с телом</span>
+          </div>
+          <div class="cheat">
+            <code>напомни через 20 минут …</code>
+            <span>напоминание</span>
+          </div>
+          <div class="cheat">
+            <code>напомни в 19:30 …</code>
+            <span>напоминание на время</span>
+          </div>
+          <div class="cheat">
+            <code>таймер 5 минут</code>
+            <span>засечь время</span>
+          </div>
+          <div class="cheat">
+            <code>напомни список</code>
+            <span>активные напоминания</span>
+          </div>
+          <div class="cheat">
+            <code>помощь</code>
+            <span>список команд</span>
+          </div>
+          <div class="cheat">
+            <code>свернуть</code>
+            <span>спрятать в кружок</span>
+          </div>
         </div>
       </div>
     </section>
@@ -409,6 +478,13 @@
 
   <footer class="footer">
     <div class="container footer-inner">
+      <div class="footer-author">
+        <img src="avatar.png" alt="Piip" class="author-avatar" width="44" height="44">
+        <div class="author-text">
+          <span class="author-name">Piip</span>
+          <span class="author-role">Created by Piip</span>
+        </div>
+      </div>
       <div class="footer-brand">
         <img src="assistpiip.svg" alt="" class="brand-mark" width="26" height="26">
         <span>AssistPiip</span>

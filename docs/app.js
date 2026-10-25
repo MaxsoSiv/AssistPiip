@@ -18,6 +18,20 @@
         "• Окно растягивается за угол, история команд стрелками\n" +
         "• Исправлен калькулятор: XOR и логические операции в HEX",
     },
+    {
+      version: "1.0.0",
+      date: "2026-10-22",
+      file: "https://github.com/MaxsoSiv/AssistPiip/releases/download/Release/AssistPiip-Beta-1.0.0.zip",
+      size: 0,
+      notes:
+        "Первый бета-релиз:\n" +
+        "• Кастомные команды с алиасами и быстрым доступом\n" +
+        "• Буфер обмена: текст и картинки, поиск по дате\n" +
+        "• Калькулятор: обычный, инженерный, программистский\n" +
+        "• Заметки с закреплением\n" +
+        "• 4 темы оформления и анимированный фон\n" +
+        "• Сворачивание в плавающий кружок",
+    },
   ];
 
   const yearEl        = document.getElementById("year");
@@ -108,61 +122,101 @@
     if (sizeEl) sizeEl.textContent = humanSize(latest.size);
   }
 
-  function renderReleases(releases) {
-    if (!updatesList) return;
+  const verRail = document.getElementById("version-rail");
+  const verPrev = document.getElementById("ver-prev");
+  const verNext = document.getElementById("ver-next");
+  let currentRelease = 0;
+  let allReleases = [];
+
+  function selectRelease(index) {
+    if (!allReleases.length) return;
+    currentRelease = Math.max(0, Math.min(index, allReleases.length - 1));
+    renderRail();
+    renderDetail();
+  }
+
+  function renderRail() {
+    if (!verRail) return;
+    verRail.replaceChildren();
+    allReleases.forEach((r, i) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "ver-chip" + (i === currentRelease ? " is-active" : "");
+      const ver = document.createElement("span");
+      ver.className = "ver-chip-version";
+      ver.textContent = "v" + r.version;
+      const date = document.createElement("span");
+      date.className = "ver-chip-date";
+      date.textContent = formatDate(r.date);
+      btn.append(ver, date);
+      btn.addEventListener("click", () => selectRelease(i));
+      verRail.append(btn);
+    });
+    const active = verRail.querySelector(".is-active");
+    if (active) active.scrollIntoView({ block: "nearest", inline: "center", behavior: "smooth" });
+  }
+
+  function renderDetail() {
+    if (!updatesList || !allReleases.length) return;
+    const r = allReleases[currentRelease];
+
     updatesList.replaceChildren();
 
-    if (!releases.length) {
-      const p = document.createElement("p");
-      p.className = "muted";
-      p.textContent = "Пока нет записей.";
-      updatesList.append(p);
-      return;
+    const row = document.createElement("div");
+    row.className = "release";
+
+    const left = document.createElement("div");
+    const ver = document.createElement("div");
+    ver.className = "release-version";
+    ver.textContent = "v" + r.version;
+    if (currentRelease === 0) {
+      const badge = document.createElement("span");
+      badge.className = "release-current";
+      badge.textContent = "актуальная";
+      ver.append(badge);
+    }
+    left.append(ver);
+
+    const date = document.createElement("span");
+    date.className = "release-date";
+    date.textContent = formatDate(r.date);
+    left.append(date);
+
+    const counter = document.createElement("span");
+    counter.className = "release-counter";
+    counter.textContent = (currentRelease + 1) + " / " + allReleases.length;
+    left.append(counter);
+
+    const body = document.createElement("div");
+    body.className = "release-body";
+    body.textContent = r.notes || "—";
+
+    if (r.file) {
+      const link = document.createElement("a");
+      link.className = "release-download";
+      link.href = r.file;
+      link.setAttribute("download", "");
+      link.innerHTML =
+        '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" ' +
+        'stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' +
+        '<path d="M10 3v10M5 9l5 5 5-5M4 17h12"/></svg>' +
+        "Скачать v" + r.version;
+      body.append(document.createElement("br"));
+      body.append(link);
     }
 
-    releases.forEach((r, index) => {
-      const row = document.createElement("div");
-      row.className = "release reveal";
+    row.append(left, body);
+    updatesList.append(row);
 
-      const left = document.createElement("div");
-      const ver = document.createElement("div");
-      ver.className = "release-version";
-      ver.textContent = r.version;
-      if (index === 0) {
-        const badge = document.createElement("span");
-        badge.className = "release-current";
-        badge.textContent = "актуальная";
-        ver.append(badge);
-      }
-      left.append(ver);
+    if (verPrev) verPrev.disabled = currentRelease === 0;
+    if (verNext) verNext.disabled = currentRelease === allReleases.length - 1;
+  }
 
-      const date = document.createElement("span");
-      date.className = "release-date";
-      date.textContent = formatDate(r.date);
-      left.append(date);
-
-      const body = document.createElement("div");
-      body.className = "release-body";
-      body.textContent = r.notes || "—";
-
-      if (r.file) {
-        const link = document.createElement("a");
-        link.className = "release-download";
-        link.href = r.file;
-        link.setAttribute("download", "");
-        link.innerHTML =
-          '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" ' +
-          'stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' +
-          '<path d="M10 3v10M5 9l5 5 5-5M4 17h12"/></svg>' +
-          "Скачать";
-        body.append(document.createElement("br"));
-        body.append(link);
-      }
-
-      row.append(left, body);
-      updatesList.append(row);
-    });
-
+  function renderReleases(releases) {
+    allReleases = releases;
+    currentRelease = 0;
+    renderRail();
+    renderDetail();
     observeReveals();
   }
   function setupReveals() {
@@ -227,6 +281,9 @@
   (async () => {
     setupReveals();
     setupScrollProgress();
+
+    if (verPrev) verPrev.addEventListener("click", () => selectRelease(currentRelease - 1));
+    if (verNext) verNext.addEventListener("click", () => selectRelease(currentRelease + 1));
 
     const releases = await loadReleases();
     renderHero(releases);
