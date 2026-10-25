@@ -1236,13 +1236,25 @@ class MainWindow(QMainWindow):
             return
 
         removed = self.reminder_manager.cancel(kind=kind)
-        what = "таймеры" if kind == "timer" else "напоминания"
+        what = ("таймер", "таймера", "таймеров") if kind == "timer" else ("напоминание", "напоминания", "напоминаний")
         if removed:
+            word = self._plural_ru(len(removed), *what)
             lines = "<br>".join(f"• «{r['label']}» ({r['due'].strftime('%H:%M %d.%m')})" for r in removed)
-            self._log_chat("assistant", f"Отменил {len(removed)} {what}:<br>{lines}")
-            logging.info(f"Отменены {what}: {len(removed)} шт.")
+            self._log_chat("assistant", f"Отменил {len(removed)} {word}:<br>{lines}")
+            logging.info(f"Отменены {what[2]}: {len(removed)} шт.")
         else:
-            self._log_chat("assistant", f"Активных {what} нет. «напомни список» — посмотреть все.")
+            self._log_chat("assistant", f"Активных {what[2]} нет. «напомни список» — посмотреть все.")
+
+    def _plural_ru(self, n: int, one: str, few: str, many: str) -> str:
+        n = abs(n) % 100
+        if 11 <= n <= 14:
+            return many
+        d = n % 10
+        if d == 1:
+            return one
+        if 2 <= d <= 4:
+            return few
+        return many
 
     def _list_reminders(self):
         items = self.reminder_manager.pending()

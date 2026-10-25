@@ -1,5 +1,5 @@
 from PySide6.QtCore import Qt, QTimer, QSize
-from PySide6.QtGui import QPixmap, QPainter, QLinearGradient, QColor, QFont
+from PySide6.QtGui import QPixmap, QPainter, QLinearGradient, QColor, QFont, QTextDocument
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QFrame,
     QListWidget, QListWidgetItem
@@ -15,6 +15,17 @@ AVATAR_COLORS = {
 }
 
 USER_COLORS = ((252, 163, 17), (255, 107, 107))
+
+AVATAR_SIZE = 30
+BODY_MAX_WIDTH = 440
+ROW_MARGIN = 6
+BUBBLE_V_MARGINS = 15
+BUBBLE_H_MARGINS = 24
+HEADER_HEIGHT = 18
+SPACING = 2
+BORDERS = 4
+SAFETY = 4
+MIN_ROW_HEIGHT = 58
 
 
 def _bubble_avatar(letter, c1, c2):
@@ -45,6 +56,7 @@ class ChatView(QWidget):
         super().__init__(parent)
         self._settings = settings
         self._accent_hex = ""
+        self._rows = []
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -63,12 +75,13 @@ class ChatView(QWidget):
 
     def clear(self):
         self._list.clear()
+        self._rows = []
 
     def add_message(self, role: str, text: str, timestamp: str = ""):
         is_assistant = (role == "assistant")
         row = QWidget()
         head = QHBoxLayout(row)
-        head.setContentsMargins(6, 3, 6, 3)
+        head.setContentsMargins(ROW_MARGIN // 2, ROW_MARGIN // 2, ROW_MARGIN // 2, ROW_MARGIN // 2)
         head.setSpacing(8)
 
         if is_assistant:
@@ -80,7 +93,7 @@ class ChatView(QWidget):
 
         avatar = QLabel()
         avatar.setPixmap(self._make_avatar("P" if is_assistant else "Я", c1, c2))
-        avatar.setFixedSize(30, 30)
+        avatar.setFixedSize(AVATAR_SIZE, AVATAR_SIZE)
         avatar.setScaledContents(True)
 
         bubble = QFrame()
@@ -106,7 +119,7 @@ class ChatView(QWidget):
 
         body = QLabel(text)
         body.setWordWrap(True)
-        body.setMaximumWidth(440)
+        body.setMaximumWidth(BODY_MAX_WIDTH)
         body.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         body.setTextFormat(Qt.TextFormat.PlainText if not is_assistant else Qt.TextFormat.AutoText)
         inner.addWidget(body)
@@ -123,23 +136,34 @@ class ChatView(QWidget):
         item = QListWidgetItem()
         self._list.addItem(item)
         self._list.setItemWidget(item, row)
+        self._rows.append((item, body))
         self._relayout_rows()
         QTimer.singleShot(0, self._list.scrollToBottom)
 
     def _relayout_rows(self):
         width = self._list.viewport().width() - 4
-        if width <= 50:
+        if width <= 80:
             return
-        for i in range(self._list.count()):
-            item = self._list.item(i)
-            widget = self._list.itemWidget(item)
-            if widget is None:
+        body_width = min(BODY_MAX_WIDTH, width - AVATAR_SIZE - 16 - BUBBLE_H_MARGINS - BORDERS) - 2
+        if body_width < 60:
+            return
+        for item, body in self._rows:
+            row = self._list.itemWidget(item)
+            if row is None:
                 continue
-            widget.setFixedWidth(width)
-            height = widget.layout().heightForWidth(width)
-            if height < 0:
-                height = widget.sizeHint().height()
-            item.setSizeHint(QSize(width, max(int(height) + 1, 44)))
+            row.setFixedWidth(width)
+
+            doc = QTextDocument()
+            doc.setDefaultFont(body.font())
+            if body.textFormat() == Qt.TextFormat.PlainText:
+                doc.setPlainText(body.text())
+            else:
+                doc.setHtml(body.text())
+            doc.setTextWidth(body_width)
+            body_h = doc.size().height()
+
+            total = ROW_MARGIN + BUBBLE_V_MARGINS + BORDERS + HEADER_HEIGHT + SPACING + int(body_h) + SAFETY
+            item.setSizeHint(QSize(width, max(total, MIN_ROW_HEIGHT)))
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
