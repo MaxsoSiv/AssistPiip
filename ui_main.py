@@ -554,7 +554,22 @@ class MainWindow(QMainWindow):
     def _create_settings_page(self) -> QWidget:
         page = QWidget()
         page.setObjectName("pageContainer")
-        layout = QVBoxLayout(page)
+        outer = QVBoxLayout(page)
+        outer.setContentsMargins(0, 0, 0, 0)
+        outer.setSpacing(0)
+
+        scroll = QScrollArea()
+        scroll.setObjectName("settingsScroll")
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        outer.addWidget(scroll)
+
+        content = QWidget()
+        content.setObjectName("settingsInner")
+        scroll.setWidget(content)
+
+        layout = QVBoxLayout(content)
         layout.setContentsMargins(24, 24, 24, 24)
         layout.setSpacing(14)
 
@@ -710,6 +725,7 @@ class MainWindow(QMainWindow):
         self._clear_logs_btn.clicked.connect(self._clear_logs)
         layout.addWidget(self._clear_logs_btn, 0, Qt.AlignmentFlag.AlignRight)
 
+        layout.addStretch()
         return page
 
     def _clear_logs(self):
@@ -1016,7 +1032,7 @@ class MainWindow(QMainWindow):
     def _run_delayed_command(self, text: str):
         parsed = parse_when(text)
         if parsed is None:
-            self._log_chat("assistant", "Не поняла время. Пример: «через 30 минут открой браузер»")
+            self._log_chat("assistant", "Не понял время. Пример: «через 30 минут открой браузер»")
             return
         due, command = parsed
         if not command:
@@ -1153,6 +1169,7 @@ class MainWindow(QMainWindow):
             "Быстрая заметка: «заметка купить хлеб» или «заметка купить хлеб | вечером».\n"
             "Напоминания: «напомни через 20 минут купить хлеб», «напомни в 19:30 позвонить».\n"
             "Таймер: «таймер 5 минут», «таймер 30 секунд».\n"
+            "Отмена: «таймер отмена», «напомни отмена», «напомни отмена 2» (по номеру из списка).\n"
             "Также можно создавать свои команды во вкладке «Команды»."
         )
 
@@ -1170,14 +1187,18 @@ class MainWindow(QMainWindow):
             self._list_reminders()
             return
 
+        if rest.lower().startswith(("отмен", "стоп", "сброс")):
+            self._cancel_reminders(kind, rest)
+            return
+
         parsed = parse_when(rest)
         if parsed is None and rest.lstrip()[:1].isdigit():
             parsed = parse_when("через " + rest)
         if parsed is None:
             self._log_chat(
                 "assistant",
-                "Не поняла время. Примеры: «напомни через 20 минут купить хлеб», "
-                "«напомни в 19:30 позвонить», «таймер 5 минут»"
+                "Не понял время. Примеры: «напомни через 20 минут купить хлеб», "
+                "«напомни в 19:30 позвонить», «таймер 5 минут», «напомни отмена»"
             )
             return
 
@@ -1189,13 +1210,51 @@ class MainWindow(QMainWindow):
         self._log_chat("assistant", f"{title} {due.strftime('%H:%M %d.%m')}: {entry['label']}")
         logging.info(f"{'Таймер' if kind == 'timer' else 'Напоминание'} установлено: {label} на {due}")
 
+    def _cancel_reminders(self, kind, rest):
+        lowered = rest.lower()
+        items = self.reminder_manager.pending()
+
+        m = re.search(r"\b(\d+)\b", lowered)
+        if m:
+            idx = int(m.group(1))
+            if 1 <= idx <= len(items):
+                entry = items[idx - 1]
+                self.reminder_manager.cancel(rid=entry["id"])
+                self._log_chat("assistant", f"Отменил: «{entry['label']}» ({entry['due'].strftime('%H:%M %d.%m')})")
+                logging.info(f"Напоминание отменено: {entry['label']}")
+            else:
+                self._log_chat("assistant", f"В списке нет напоминания №{idx}. «напомни список» покажет нумерацию.")
+            return
+
+        words = lowered.split()
+        if words and words[-1].startswith("вс"):
+            removed = self.reminder_manager.cancel()
+            self._log_chat(
+                "assistant",
+                f"Отменил всё ({len(removed)} шт.)" if removed else "Активных напоминаний нет",
+            )
+            return
+
+        removed = self.reminder_manager.cancel(kind=kind)
+        what = "таймеры" if kind == "timer" else "напоминания"
+        if removed:
+            lines = "<br>".join(f"• «{r['label']}» ({r['due'].strftime('%H:%M %d.%m')})" for r in removed)
+            self._log_chat("assistant", f"Отменил {len(removed)} {what}:<br>{lines}")
+            logging.info(f"Отменены {what}: {len(removed)} шт.")
+        else:
+            self._log_chat("assistant", f"Активных {what} нет. «напомни список» — посмотреть все.")
+
     def _list_reminders(self):
         items = self.reminder_manager.pending()
         if not items:
             self._log_chat("assistant", "Активных напоминаний нет. Пример: «напомни через 10 минут сделать перерыв»")
             return
-        lines = [f"• {r['label']} — {r['due'].strftime('%H:%M %d.%m')}" for r in items]
-        self._log_chat("assistant", "Активные напоминания:<br>" + "<br>".join(lines))
+        lines = [f"{i}. {r['label']} — {r['due'].strftime('%H:%M %d.%m')} ({r['kind']})" for i, r in enumerate(items, 1)]
+        self._log_chat(
+            "assistant",
+            "Активные напоминания:<br>" + "<br>".join(lines)
+            + "<br>Отмена: «напомни отмена 2» — по номеру, «таймер отмена» — все таймеры, «напомни отмена всё» — все подряд",
+        )
 
     def _on_reminder(self, entry):
         QApplication.beep()

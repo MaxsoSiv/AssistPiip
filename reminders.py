@@ -119,6 +119,26 @@ class ReminderManager(QObject):
         self._save()
         return entry
 
+    def cancel(self, rid: str = None, kind: str = None) -> list:
+        removed = []
+        for entry in list(self._reminders):
+            if rid is not None and entry["id"] != rid:
+                continue
+            if kind is not None and entry["kind"] != kind:
+                continue
+            removed.append(entry)
+
+        for entry in removed:
+            self._reminders.remove(entry)
+            timer = self._timers.pop(entry["id"], None)
+            if timer:
+                timer.stop()
+                timer.deleteLater()
+
+        if removed:
+            self._save()
+        return removed
+
     def _fire(self, entry):
         if entry not in self._reminders:
             return

@@ -90,6 +90,8 @@ QKeySequenceEdit { background: #2b2d31; color: #ddd; border: 1px solid #3a3d42; 
 
 QWidget#quickItem { background: transparent; }
 QWidget#quickContainer { background: transparent; }
+QScrollArea#settingsScroll { background: transparent; border: none; }
+QWidget#settingsInner { background: transparent; }
 QScrollArea#quickScroll { border: none; background: transparent; }
 QPushButton#quickDeleteButton { background: transparent; color: #888; border: none; padding: 0; border-radius: 11px; font-size: 15px; font-weight: bold; }
 QPushButton#quickDeleteButton:hover { color: #ff5d5d; background: rgba(255, 93, 93, 0.12); }
@@ -196,6 +198,8 @@ QKeySequenceEdit { background: #ffffff; color: #1a1b1e; border: 1px solid #c0c3c
 
 QWidget#quickItem { background: transparent; }
 QWidget#quickContainer { background: transparent; }
+QScrollArea#settingsScroll { background: transparent; border: none; }
+QWidget#settingsInner { background: transparent; }
 QScrollArea#quickScroll { border: none; background: transparent; }
 QPushButton#quickDeleteButton { background: transparent; color: #888; border: none; padding: 0; border-radius: 11px; font-size: 15px; font-weight: bold; }
 QPushButton#quickDeleteButton:hover { color: #ff5d5d; background: rgba(255, 93, 93, 0.12); }
@@ -302,6 +306,8 @@ QKeySequenceEdit { background: #112240; color: #c9d6e8; border: 1px solid #1d355
 
 QWidget#quickItem { background: transparent; }
 QWidget#quickContainer { background: transparent; }
+QScrollArea#settingsScroll { background: transparent; border: none; }
+QWidget#settingsInner { background: transparent; }
 QScrollArea#quickScroll { border: none; background: transparent; }
 QPushButton#quickDeleteButton { background: transparent; color: #888; border: none; padding: 0; border-radius: 11px; font-size: 15px; font-weight: bold; }
 QPushButton#quickDeleteButton:hover { color: #ff5d5d; background: rgba(255, 93, 93, 0.12); }
@@ -408,6 +414,8 @@ QKeySequenceEdit { background: #3d1414; color: #fdf0d5; border: 1px solid #5e281
 
 QWidget#quickItem { background: transparent; }
 QWidget#quickContainer { background: transparent; }
+QScrollArea#settingsScroll { background: transparent; border: none; }
+QWidget#settingsInner { background: transparent; }
 QScrollArea#quickScroll { border: none; background: transparent; }
 QPushButton#quickDeleteButton { background: transparent; color: #888; border: none; padding: 0; border-radius: 11px; font-size: 15px; font-weight: bold; }
 QPushButton#quickDeleteButton:hover { color: #ff5d5d; background: rgba(255, 93, 93, 0.12); }
@@ -516,6 +524,8 @@ QKeySequenceEdit { background: #2a2140; color: #d9d2ee; border: 1px solid #3d316
 
 QWidget#quickItem { background: transparent; }
 QWidget#quickContainer { background: transparent; }
+QScrollArea#settingsScroll { background: transparent; border: none; }
+QWidget#settingsInner { background: transparent; }
 QScrollArea#quickScroll { border: none; background: transparent; }
 QPushButton#quickDeleteButton { background: transparent; color: #888; border: none; padding: 0; border-radius: 11px; font-size: 15px; font-weight: bold; }
 QPushButton#quickDeleteButton:hover { color: #ff5d5d; background: rgba(255, 93, 93, 0.12); }
@@ -624,6 +634,8 @@ QKeySequenceEdit { background: #3a2030; color: #f0d9e5; border: 1px solid #522f4
 
 QWidget#quickItem { background: transparent; }
 QWidget#quickContainer { background: transparent; }
+QScrollArea#settingsScroll { background: transparent; border: none; }
+QWidget#settingsInner { background: transparent; }
 QScrollArea#quickScroll { border: none; background: transparent; }
 QPushButton#quickDeleteButton { background: transparent; color: #888; border: none; padding: 0; border-radius: 11px; font-size: 15px; font-weight: bold; }
 QPushButton#quickDeleteButton:hover { color: #ff5d5d; background: rgba(255, 93, 93, 0.12); }

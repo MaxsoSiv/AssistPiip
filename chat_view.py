@@ -1,4 +1,4 @@
-from PySide6.QtCore import Qt, QTimer
+from PySide6.QtCore import Qt, QTimer, QSize
 from PySide6.QtGui import QPixmap, QPainter, QLinearGradient, QColor, QFont
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QFrame,
@@ -108,6 +108,7 @@ class ChatView(QWidget):
         body.setWordWrap(True)
         body.setMaximumWidth(440)
         body.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        body.setTextFormat(Qt.TextFormat.PlainText if not is_assistant else Qt.TextFormat.AutoText)
         inner.addWidget(body)
 
         if is_assistant:
@@ -120,10 +121,29 @@ class ChatView(QWidget):
             head.addWidget(avatar, 0, Qt.AlignmentFlag.AlignTop)
 
         item = QListWidgetItem()
-        item.setSizeHint(row.sizeHint())
         self._list.addItem(item)
         self._list.setItemWidget(item, row)
+        self._relayout_rows()
         QTimer.singleShot(0, self._list.scrollToBottom)
+
+    def _relayout_rows(self):
+        width = self._list.viewport().width() - 4
+        if width <= 50:
+            return
+        for i in range(self._list.count()):
+            item = self._list.item(i)
+            widget = self._list.itemWidget(item)
+            if widget is None:
+                continue
+            widget.setFixedWidth(width)
+            height = widget.layout().heightForWidth(width)
+            if height < 0:
+                height = widget.sizeHint().height()
+            item.setSizeHint(QSize(width, max(int(height) + 1, 44)))
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self._relayout_rows()
 
     def _make_avatar(self, letter, c1, c2):
         if isinstance(c1, str):
