@@ -200,17 +200,17 @@ class MainWindow(QMainWindow):
     def _create_title_bar(self) -> QWidget:
         bar = QFrame()
         bar.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
-        bar.setFixedHeight(40)
+        bar.setFixedHeight(46)
         bar.setObjectName("titleBar")
         layout = QHBoxLayout(bar)
-        layout.setContentsMargins(12, 0, 8, 0)
+        layout.setContentsMargins(14, 0, 8, 0)
         layout.setSpacing(8)
 
         base = get_app_dir()
         app_icon_path = os.path.join(base, "app_icon.png")
         if os.path.exists(app_icon_path):
             icon_label = QLabel()
-            pix = QIcon(app_icon_path).pixmap(24, 24)
+            pix = QIcon(app_icon_path).pixmap(26, 26)
             icon_label.setPixmap(pix)
             layout.addWidget(icon_label)
 
@@ -218,10 +218,14 @@ class MainWindow(QMainWindow):
         title.setStyleSheet("font-weight:600; font-size:14px;")
         layout.addWidget(title)
 
+        version_label = QLabel(f"v{APP_VERSION}")
+        version_label.setObjectName("versionLabel")
+        layout.addWidget(version_label)
+
         self._about_btn = QPushButton("?")
         self._about_btn.setObjectName("titleButton")
-        self._about_btn.setFixedSize(24, 24)
-        self._about_btn.setStyleSheet("font-weight: bold; font-size: 16px; color: #aaa;")
+        self._about_btn.setFixedSize(26, 26)
+        self._about_btn.setStyleSheet("font-weight: bold; font-size: 15px; color: #aaa;")
         self._about_btn.setToolTip("О программе")
         self._about_btn.clicked.connect(self._show_about)
         layout.addWidget(self._about_btn)
@@ -230,26 +234,26 @@ class MainWindow(QMainWindow):
 
         self._pin_btn = QPushButton()
         self._pin_btn.setObjectName("titleButton")
-        self._pin_btn.setFixedSize(32, 32)
+        self._pin_btn.setFixedSize(34, 34)
         self._pin_btn.setIcon(self._icons.get("pin_off", QIcon()))
         self._pin_btn.setToolTip("Закрепить поверх окон")
         layout.addWidget(self._pin_btn)
 
         self._min_btn = QPushButton()
         self._min_btn.setObjectName("titleButton")
-        self._min_btn.setFixedSize(32, 32)
+        self._min_btn.setFixedSize(34, 34)
         self._min_btn.setIcon(self._icons.get("minimize", QIcon()))
         layout.addWidget(self._min_btn)
 
         self._max_btn = QPushButton()
         self._max_btn.setObjectName("titleButton")
-        self._max_btn.setFixedSize(32, 32)
+        self._max_btn.setFixedSize(34, 34)
         self._max_btn.setIcon(self._icons.get("maximize", QIcon()))
         layout.addWidget(self._max_btn)
 
         self._close_btn = QPushButton()
         self._close_btn.setObjectName("titleClose")
-        self._close_btn.setFixedSize(32, 32)
+        self._close_btn.setFixedSize(34, 34)
         self._close_btn.setIcon(self._icons.get("close", QIcon()))
         layout.addWidget(self._close_btn)
 
@@ -384,14 +388,14 @@ class MainWindow(QMainWindow):
         layout.addWidget(quick_label)
 
         self._quick_scroll = QScrollArea()
+        self._quick_scroll.setObjectName("quickScroll")
         self._quick_scroll.setWidgetResizable(True)
         self._quick_scroll.setFixedHeight(50)
         self._quick_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self._quick_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
-        self._quick_scroll.setStyleSheet("QScrollArea { border: none; background: transparent; }")
 
         self._quick_container = QWidget()
-        self._quick_container.setStyleSheet("background: transparent;")
+        self._quick_container.setObjectName("quickContainer")
         self._quick_layout = QHBoxLayout(self._quick_container)
         self._quick_layout.setContentsMargins(0, 0, 0, 0)
         self._quick_layout.setSpacing(8)
@@ -414,7 +418,7 @@ class MainWindow(QMainWindow):
 
         for trigger in self.settings.quick_commands:
             cmd_widget = QWidget()
-            cmd_widget.setStyleSheet("background: transparent;")
+            cmd_widget.setObjectName("quickItem")
             cmd_layout = QHBoxLayout(cmd_widget)
             cmd_layout.setContentsMargins(0, 0, 0, 0)
             cmd_layout.setSpacing(2)
@@ -448,7 +452,7 @@ class MainWindow(QMainWindow):
 
         add_btn = QPushButton("+")
         add_btn.setObjectName("quickAddButton")
-        add_btn.setFixedSize(36, 36)
+        add_btn.setFixedSize(38, 38)
         add_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         add_btn.setToolTip("Добавить быструю команду")
         add_btn.clicked.connect(self._show_add_quick_menu)

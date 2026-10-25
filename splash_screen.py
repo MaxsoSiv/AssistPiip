@@ -152,19 +152,28 @@ class SplashScreen(QWidget):
         painter.end()
 
     def _paint_background(self, painter, w, h, t):
-        enter = _ease_out_cubic(_phase(t, 0, 200))
-        bg = QColor(7, 10, 16)
-        bg.setAlphaF(0.94 * enter)
-        painter.setPen(Qt.PenStyle.NoPen)
-        painter.setBrush(bg)
-        painter.drawRoundedRect(QRectF(0, 0, w, h), 18, 18)
+        enter = _ease_out_cubic(_phase(t, 0, 260))
+        if enter <= 0:
+            return
 
-        if enter > 0:
-            border = QColor(ACCENT_A)
-            border.setAlphaF(0.16 * enter)
-            painter.setPen(QPen(border, 1))
-            painter.setBrush(Qt.BrushStyle.NoBrush)
-            painter.drawRoundedRect(QRectF(0.5, 0.5, w - 1, h - 1), 18, 18)
+        cx, cy = w / 2.0, 118.0
+        glow = QRadialGradient(cx, cy, 290)
+        c0 = QColor(7, 10, 16)
+        c0.setAlphaF(0.78 * enter)
+        glow.setColorAt(0.0, c0)
+        c1 = QColor(7, 10, 16)
+        c1.setAlphaF(0.5 * enter)
+        glow.setColorAt(0.55, c1)
+        c2 = QColor(7, 10, 16)
+        c2.setAlphaF(0.18 * enter)
+        glow.setColorAt(0.85, c2)
+        c3 = QColor(7, 10, 16)
+        c3.setAlphaF(0.0)
+        glow.setColorAt(1.0, c3)
+
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(glow)
+        painter.drawEllipse(QPointF(cx, cy), 290, 290)
 
     def _paint_glow(self, painter, cx, cy, t):
         logo_alpha = _ease_out_cubic(_phase(t, 0, 420))
