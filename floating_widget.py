@@ -23,6 +23,8 @@ class FloatingCircle(QWidget):
         self._theme = theme
         self._opacity = opacity
         self._hover = False
+        self._countdown = None
+        self._custom_colors = None
         self._drag_pos = QPoint()
         self._press_pos = QPoint()
         self._press_time = 0
@@ -58,6 +60,15 @@ class FloatingCircle(QWidget):
         self._theme = theme
         self.update()
 
+    def set_custom_colors(self, c1, c2):
+        self._custom_colors = (c1, c2) if c1 is not None else None
+        self.update()
+
+    def set_countdown(self, text):
+        if text != self._countdown:
+            self._countdown = text
+            self.update()
+
     def enterEvent(self, event):
         self._hover = True
         self.update()
@@ -78,6 +89,8 @@ class FloatingCircle(QWidget):
         self.update()
 
     def _palette(self):
+        if self._custom_colors:
+            return self._custom_colors
         if self._theme == "green":
             return QColor(40, 200, 80), QColor(150, 240, 60)
         if self._theme == "red":
@@ -166,12 +179,20 @@ class FloatingCircle(QWidget):
         painter.setBrush(sat)
         painter.drawEllipse(QPointF(sx, sy), 2.2, 2.2)
 
-        painter.setPen(QPen(QColor(16, 20, 26)))
-        font = QFont()
-        font.setPointSize(21)
-        font.setBold(True)
-        painter.setFont(font)
-        painter.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter, "P")
+        if self._countdown:
+            text_font = QFont()
+            text_font.setPointSize(12 if len(self._countdown) <= 5 else 10)
+            text_font.setBold(True)
+            painter.setFont(text_font)
+            painter.setPen(QPen(QColor(255, 255, 255)))
+            painter.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter, self._countdown)
+        else:
+            painter.setPen(QPen(QColor(16, 20, 26)))
+            font = QFont()
+            font.setPointSize(21)
+            font.setBold(True)
+            painter.setFont(font)
+            painter.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter, "P")
 
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:

@@ -160,13 +160,17 @@ class ToastManager(QWidget):
         super().__init__(None)
         self.setWindowFlag(Qt.WindowType.Tool, True)
         self._theme = theme
+        self._custom_accent = None
         self._cards = []
 
     def set_theme(self, theme):
         self._theme = theme
 
+    def set_custom_accent(self, color):
+        self._custom_accent = color
+
     def show_toast(self, title, message, on_snooze=None):
-        accent = ACCENTS.get(self._theme, ACCENTS["dark"])
+        accent = self._custom_accent or ACCENTS.get(self._theme, ACCENTS["dark"])
         card = ToastCard(title, message, accent, on_snooze)
         card.closed.connect(self._on_closed)
         self._cards.append(card)

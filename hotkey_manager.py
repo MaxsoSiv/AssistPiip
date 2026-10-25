@@ -2,7 +2,8 @@ import logging
 import win32con
 import win32gui
 
-HOTKEY_ID = 0xB00C
+HOTKEY_ID_MAIN = 0xB00C
+HOTKEY_ID_SPOTLIGHT = 0xB00D
 
 MOD_MAP = {
     "ctrl": win32con.MOD_CONTROL,
@@ -40,10 +41,10 @@ def parse_combo(text: str):
 class HotkeyManager:
     def __init__(self, window):
         self._window = window
-        self._registered = False
+        self._registered = {}
 
-    def register(self, combo_text: str):
-        self.unregister()
+    def register(self, hotkey_id: int, combo_text: str):
+        self.unregister(hotkey_id)
 
         parsed = parse_combo(combo_text)
         if parsed is None:
@@ -52,18 +53,22 @@ class HotkeyManager:
         mods, vk = parsed
         try:
             hwnd = int(self._window.winId())
-            win32gui.RegisterHotKey(hwnd, HOTKEY_ID, mods, vk)
+            win32gui.RegisterHotKey(hwnd, hotkey_id, mods, vk)
         except Exception as e:
             logging.error(f"Горячая клавиша не зарегистрирована: {e}")
             return False, "Комбинация уже занята другой программой"
 
-        self._registered = True
+        self._registered[hotkey_id] = combo_text
         return True, ""
 
-    def unregister(self):
-        if self._registered:
+    def unregister(self, hotkey_id: int):
+        if hotkey_id in self._registered:
             try:
-                win32gui.UnregisterHotKey(int(self._window.winId()), HOTKEY_ID)
+                win32gui.UnregisterHotKey(int(self._window.winId()), hotkey_id)
             except Exception:
                 pass
-            self._registered = False
+            del self._registered[hotkey_id]
+
+    def unregister_all(self):
+        for hotkey_id in list(self._registered):
+            self.unregister(hotkey_id)

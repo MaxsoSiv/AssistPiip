@@ -6,7 +6,7 @@ import logging
 import win32gui
 import win32con
 
-APP_VERSION = "1.0.1"
+APP_VERSION = "1.0.2"
 
 
 def get_app_dir():

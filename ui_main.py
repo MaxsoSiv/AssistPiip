@@ -4,7 +4,6 @@ import json
 import logging
 import shiboken6
 import random
-import base64
 import subprocess
 import re
 import requests
@@ -16,9 +15,9 @@ from PySide6.QtWidgets import (
     QPushButton, QLabel, QStackedWidget, QListWidget, QListWidgetItem,
     QTextEdit, QDialog, QFormLayout, QComboBox, QCheckBox, QSlider,
     QFileDialog, QMessageBox, QMenu, QFrame, QGridLayout, QScrollArea,
-    QSizePolicy, QSizeGrip, QKeySequenceEdit, QProgressDialog
+    QSizePolicy, QSizeGrip, QKeySequenceEdit, QProgressDialog, QColorDialog
 )
-from PySide6.QtCore import Qt, QBuffer, QIODevice, QSize
+from PySide6.QtCore import Qt, QBuffer, QIODevice, QSize, QTimer
 from PySide6.QtGui import QIcon, QPixmapCache, QPixmap, QPainter, QLinearGradient, QColor, QFont, QCursor, QKeySequence
 
 from settings_manager import SettingsManager
@@ -32,13 +31,15 @@ from fuzzy_matcher import FuzzyMatcher
 from floating_widget import FloatingCircle
 from utils import open_path, open_url, set_always_on_top, get_app_dir, APP_VERSION
 import updater
-from hotkey_manager import HotkeyManager, HOTKEY_ID
-from calculator import CalculatorPage
+from hotkey_manager import HotkeyManager, HOTKEY_ID_MAIN, HOTKEY_ID_SPOTLIGHT
+from calculator import CalculatorPage, SafeEvaluator
 from monitor_page import MonitorPage
 from translator import TranslatorPage
 from jarvis_bg import JarvisBackground
 from about_dialog import AboutDialog
-from theme import THEMES
+from theme import THEMES, apply_accent
+from chat_view import ChatView
+from spotlight import Spotlight
 import autostart as autostart_mod
 
 
@@ -115,18 +116,57 @@ class MainWindow(QMainWindow):
         self._update_downloader = None
 
         self._hotkey = HotkeyManager(self)
-        ok, err = self._hotkey.register(self.settings.hotkey)
+        ok, err = self._hotkey.register(HOTKEY_ID_MAIN, self.settings.hotkey)
         if ok:
             logging.info(f"Горячая клавиша: {self.settings.hotkey}")
         else:
             logging.warning(f"Горячая клавиша {self.settings.hotkey} не назначена: {err}")
 
+        ok, err = self._hotkey.register(HOTKEY_ID_SPOTLIGHT, self.settings.spotlight_hotkey)
+        if ok:
+            logging.info(f"Быстрая команда: {self.settings.spotlight_hotkey}")
+        else:
+            logging.warning(f"Быстрая команда {self.settings.spotlight_hotkey} не назначена: {err}")
+
+        self._spotlight = Spotlight()
+        self._spotlight.submitted.connect(self._on_spotlight_submit)
+
+        self._clock_timer = QTimer(self)
+        self._clock_timer.setInterval(1000)
+        self._clock_timer.timeout.connect(self._update_circle_countdown)
+        self._clock_timer.start()
+
     def nativeEvent(self, eventType, message):
         msg = wintypes.MSG.from_address(int(message))
-        if msg.message == win32con.WM_HOTKEY and msg.wParam == HOTKEY_ID:
-            self._toggle_via_hotkey()
-            return True, 0
+        if msg.message == win32con.WM_HOTKEY:
+            if msg.wParam == HOTKEY_ID_MAIN:
+                self._toggle_via_hotkey()
+                return True, 0
+            if msg.wParam == HOTKEY_ID_SPOTLIGHT:
+                self._toggle_spotlight()
+                return True, 0
         return super().nativeEvent(eventType, message)
+
+    def _toggle_spotlight(self):
+        if self._spotlight.isVisible():
+            self._spotlight.hide()
+            return
+        self._spotlight.open_at_cursor()
+
+    def _on_spotlight_submit(self, text):
+        self.execute_command_text(text)
+
+    def _update_circle_countdown(self):
+        items = self.reminder_manager.pending()
+        if items and self._floating and self._floating.isVisible():
+            total = max(int((items[0]["due"] - datetime.now()).total_seconds()), 0)
+            if total >= 3600:
+                text = f"{total // 3600}:{total % 3600 // 60:02d}:{total % 60:02d}"
+            else:
+                text = f"{total // 60:02d}:{total % 60:02d}"
+            self._floating.set_countdown(text)
+        elif self._floating:
+            self._floating.set_countdown(None)
 
     def _toggle_via_hotkey(self):
         if self.isVisible() and not self.isMinimized():
@@ -340,15 +380,13 @@ class MainWindow(QMainWindow):
         header.setStyleSheet("font-size:22px; font-weight:600;")
         layout.addWidget(header)
 
-        self._chat_view = QTextEdit()
-        self._chat_view.setObjectName("chatView")
-        self._chat_view.setReadOnly(True)
+        self._chat_view = ChatView(self.settings)
         layout.addWidget(self._chat_view, 1)
 
         input_row = QHBoxLayout()
         self._input = QLineEdit()
         self._input.setObjectName("commandInput")
-        self._input.setPlaceholderText("Введите команду...")
+        self._input.setPlaceholderText("Введите команду · = 2+2 · заметка · напомни ...")
         self._input.setFixedHeight(44)
         self._input.returnPressed.connect(self._execute_input)
         self._input.setToolTip("Enter — выполнить, стрелки вверх/вниз — история команд")
@@ -534,6 +572,22 @@ class MainWindow(QMainWindow):
         self._theme_combo.currentTextChanged.connect(self._on_theme_changed)
         form.addRow("Тема окна:", self._theme_combo)
 
+        accent_row = QHBoxLayout()
+        self._accent_btn = QPushButton("Как в теме")
+        self._accent_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._accent_btn.clicked.connect(self._on_accent_pick)
+        accent_row.addWidget(self._accent_btn)
+        accent_reset_btn = QPushButton("Сбросить")
+        accent_reset_btn.setObjectName("secondaryButton")
+        accent_reset_btn.clicked.connect(self._on_accent_reset)
+        accent_row.addWidget(accent_reset_btn)
+        accent_row.addStretch()
+        form.addRow("Цвет акцента:", accent_row)
+
+        accent_hint = QLabel("Перекрашивает кнопки, фон, уведомления и кружок под выбранный цвет")
+        accent_hint.setStyleSheet("color: #888; font-size: 11px;")
+        form.addRow("", accent_hint)
+
         self._opacity_slider = QSlider(Qt.Orientation.Horizontal)
         self._opacity_slider.setRange(30, 100)
         self._opacity_slider.setValue(int(self.settings.window_opacity * 100))
@@ -547,7 +601,7 @@ class MainWindow(QMainWindow):
         form.addRow("Прозрачность кружка:", self._circle_opacity_slider)
 
         self._circle_theme_combo = QComboBox()
-        self._circle_theme_combo.addItems(["blue", "green", "red", "purple", "orange", "pink", "gold"])
+        self._circle_theme_combo.addItems(["blue", "green", "red", "purple", "orange", "pink", "gold", "custom"])
         self._circle_theme_combo.setCurrentText(self.settings.circle_theme)
         self._circle_theme_combo.currentTextChanged.connect(self._on_circle_theme_changed)
         form.addRow("Тема кружка:", self._circle_theme_combo)
@@ -576,6 +630,21 @@ class MainWindow(QMainWindow):
         hotkey_hint = QLabel("Действие: показывает или скрывает окно AssistPiip из любой программы")
         hotkey_hint.setStyleSheet("color: #888; font-size: 11px;")
         form.addRow("", hotkey_hint)
+
+        spot_row = QHBoxLayout()
+        self._spotlight_edit = QKeySequenceEdit(QKeySequence(self.settings.spotlight_hotkey))
+        self._spotlight_edit.setToolTip("Например Ctrl+Alt+K")
+        self._spotlight_edit.editingFinished.connect(self._on_spotlight_hotkey_changed)
+        spot_row.addWidget(self._spotlight_edit)
+        spot_reset_btn = QPushButton("По умолчанию")
+        spot_reset_btn.setObjectName("secondaryButton")
+        spot_reset_btn.clicked.connect(self._reset_spotlight_hotkey)
+        spot_row.addWidget(spot_reset_btn)
+        form.addRow("Быстрая команда:", spot_row)
+
+        spot_hint = QLabel("Действие: открывает мини-строку у курсора — команда выполняется без открытия окна")
+        spot_hint.setStyleSheet("color: #888; font-size: 11px;")
+        form.addRow("", spot_hint)
 
         self._updates_check = QCheckBox("Проверять обновления при запуске")
         self._updates_check.setChecked(self.settings.check_updates)
@@ -841,89 +910,21 @@ class MainWindow(QMainWindow):
         self.notes_manager.notes_changed.connect(self._refresh_notes_list)
         self.clipboard_manager.clipboard_changed.connect(self._refresh_clipboard_list)
 
-    def _get_avatar_html(self, role):
-        is_assistant = (role == "assistant")
-        text = "P" if is_assistant else "Вы"
-
-        pix = QPixmap(48, 48)
-        pix.fill(Qt.GlobalColor.transparent)
-        painter = QPainter(pix)
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-
-        grad = QLinearGradient(0, 0, 48, 48)
-        if self.settings.theme == "sunset":
-            if is_assistant:
-                grad.setColorAt(0.0, QColor(252, 163, 17))
-                grad.setColorAt(1.0, QColor(255, 107, 107))
-            else:
-                grad.setColorAt(0.0, QColor(255, 107, 107))
-                grad.setColorAt(1.0, QColor(252, 163, 17))
-        elif self.settings.theme == "ocean":
-            if is_assistant:
-                grad.setColorAt(0.0, QColor(0, 119, 182))
-                grad.setColorAt(1.0, QColor(0, 180, 216))
-            else:
-                grad.setColorAt(0.0, QColor(255, 183, 3))
-                grad.setColorAt(1.0, QColor(251, 133, 0))
-        elif self.settings.theme == "purple":
-            if is_assistant:
-                grad.setColorAt(0.0, QColor(139, 92, 246))
-                grad.setColorAt(1.0, QColor(196, 140, 255))
-            else:
-                grad.setColorAt(0.0, QColor(255, 183, 3))
-                grad.setColorAt(1.0, QColor(251, 133, 0))
-        elif self.settings.theme == "pink":
-            if is_assistant:
-                grad.setColorAt(0.0, QColor(236, 72, 153))
-                grad.setColorAt(1.0, QColor(244, 114, 182))
-            else:
-                grad.setColorAt(0.0, QColor(252, 163, 17))
-                grad.setColorAt(1.0, QColor(255, 107, 107))
-        else:
-            if is_assistant:
-                grad.setColorAt(0.0, QColor(43, 108, 176))
-                grad.setColorAt(1.0, QColor(0, 180, 216))
-            else:
-                grad.setColorAt(0.0, QColor(252, 163, 17))
-                grad.setColorAt(1.0, QColor(255, 107, 107))
-
-        painter.setBrush(grad)
-        painter.setPen(Qt.PenStyle.NoPen)
-        painter.drawEllipse(0, 0, 48, 48)
-
-        painter.setPen(QColor("white"))
-        font = QFont("Arial", 18, QFont.Weight.Bold)
-        painter.setFont(font)
-        painter.drawText(pix.rect(), Qt.AlignmentFlag.AlignCenter, text)
-        painter.end()
-
-        buffer = QBuffer()
-        buffer.open(QIODevice.OpenModeFlag.WriteOnly)
-        pix.save(buffer, "PNG")
-        b64 = base64.b64encode(buffer.data().data()).decode('utf-8')
-
-        return f'<img src="data:image/png;base64,{b64}" width="32" height="32" style="border-radius: 16px; float: left; margin-right: 8px; margin-bottom: 4px;">'
-
     def _load_chat_history(self):
         if not hasattr(self, "_chat_view") or not shiboken6.isValid(self._chat_view):
             return
+        self._chat_view.set_theme(self.settings.theme, self.settings.accent_color)
         self._chat_view.clear()
-        for msg in self.chat_manager.all_messages():
-            prefix = "AssistPiip" if msg.role == "assistant" else "Вы"
-            avatar = self._get_avatar_html(msg.role)
-            color = "#2b6cb0" if msg.role == "assistant" else "#e67e22"
-            html = f"""
-            <div style="margin-bottom: 12px;">
-                {avatar}
-                <div style="margin-left: 40px;">
-                    <b style="color: {color};">{prefix}</b> <span style="color: #888; font-size: 11px;">{msg.timestamp}</span><br>
-                    <span>{msg.text}</span>
-                </div>
-            </div>
-            """
-            self._chat_view.append(html)
-        sb = self._chat_view.verticalScrollBar()
-        sb.setValue(sb.maximum())
+        messages = self.chat_manager.all_messages()
+        for msg in messages:
+            self._chat_view.add_message(msg.role, msg.text, msg.timestamp)
+        if not messages:
+            self._chat_view.add_message(
+                "assistant",
+                "Привет! Я Пип. Введи команду — браузер, заметка, напомни через 20 минут..., "
+                "или посчитай: = 2+2*2",
+                datetime.now().isoformat(timespec="seconds"),
+            )
 
     def _on_nav(self, index: int):
         for btn, idx in self._nav_buttons:
@@ -949,10 +950,13 @@ class MainWindow(QMainWindow):
 
     def _execute_input(self):
         text = self._input.text().strip()
+        self._input.clear()
+        self.execute_command_text(text)
+
+    def execute_command_text(self, text: str):
         if not text:
             return
 
-        self._input.clear()
         if not self._input_history or self._input_history[-1] != text:
             self._input_history.append(text)
             if len(self._input_history) > 50:
@@ -960,6 +964,14 @@ class MainWindow(QMainWindow):
         self._hist_index = 0
         self._log_chat("user", text)
         logging.info(f"Ввод команды: {text}")
+
+        if text.startswith("="):
+            self._run_chat_calculator(text[1:].strip())
+            return
+
+        if re.match(r"^(?:через|спустя)\s+\d", text.lower()) or re.match(r"^в\s+\d{1,2}[:.]\d{2}\s+\S", text.lower()):
+            self._run_delayed_command(text)
+            return
 
         cmd = self.command_manager.find_by_trigger(text)
         if cmd:
@@ -985,6 +997,34 @@ class MainWindow(QMainWindow):
 
         self._log_chat("assistant", f"Команда не распознана: «{text}»")
         logging.warning(f"Команда не распознана: {text}")
+
+    def _run_chat_calculator(self, expr: str):
+        if not expr:
+            self._log_chat("assistant", "Введите выражение после «=», например <b>= 2+2*2</b> или <b>= sqrt(144)</b>")
+            return
+        try:
+            result = SafeEvaluator.evaluate(expr)
+            if isinstance(result, float):
+                result = int(result) if result.is_integer() else round(result, 10)
+            self._log_chat("assistant", f"<b>{expr}</b> = <b>{result}</b>")
+            logging.info(f"Чат-калькулятор: {expr} = {result}")
+        except ZeroDivisionError:
+            self._log_chat("assistant", "Деление на ноль.")
+        except Exception as e:
+            self._log_chat("assistant", f"Не смог вычислить: {e}")
+
+    def _run_delayed_command(self, text: str):
+        parsed = parse_when(text)
+        if parsed is None:
+            self._log_chat("assistant", "Не поняла время. Пример: «через 30 минут открой браузер»")
+            return
+        due, command = parsed
+        if not command:
+            self._log_chat("assistant", "Укажите, что выполнить. Пример: «через 30 минут открой браузер»")
+            return
+        self.reminder_manager.add(due, command, "delayed")
+        self._log_chat("assistant", f"Выполню «{command}» в {due.strftime('%H:%M %d.%m')}")
+        logging.info(f"Отложенная команда: {command} на {due}")
 
     def _all_command_strings(self) -> list[str]:
         result = []
@@ -1160,6 +1200,13 @@ class MainWindow(QMainWindow):
     def _on_reminder(self, entry):
         QApplication.beep()
         kind = entry.get("kind", "reminder")
+
+        if kind == "delayed":
+            self.toast_manager.show_toast("Отложенная команда", entry["label"])
+            self._log_chat("assistant", f"Пора выполнять: {entry['label']}")
+            self.execute_command_text(entry["label"])
+            return
+
         title = "Таймер завершён" if kind == "timer" else "Напоминание"
 
         def snooze():
@@ -1178,10 +1225,12 @@ class MainWindow(QMainWindow):
             self._floating.clicked.connect(self._restore_from_circle)
             self._floating.exit_requested.connect(self._full_exit)
         self._floating.set_theme(self.settings.circle_theme)
+        self._apply_circle_theme(self.settings.circle_theme)
         self._floating.set_opacity(self.settings.circle_opacity)
         self._floating.show()
         self._floating.move(self.cursor().pos())
         self._floating.clamp_to_screen()
+        self._update_circle_countdown()
         logging.debug("Свернуто в кружок")
 
     def _restore_from_circle(self):
@@ -1201,7 +1250,13 @@ class MainWindow(QMainWindow):
             self._floating.set_opacity(value)
 
     def _apply_circle_theme(self, theme: str):
-        if self._floating:
+        if not self._floating:
+            return
+        if theme == "custom" and self.settings.accent_color:
+            c = QColor(self.settings.accent_color)
+            self._floating.set_custom_colors(c, c.lighter(140))
+        else:
+            self._floating.set_custom_colors(None, None)
             self._floating.set_theme(theme)
 
     def _apply_opacity(self, value: float):
@@ -1209,11 +1264,33 @@ class MainWindow(QMainWindow):
 
     def _apply_theme(self):
         qss = THEMES.get(self.settings.theme, THEMES["dark"])
+        accent = self.settings.accent_color
+        if accent:
+            qss = apply_accent(qss, self.settings.theme, accent)
         self.setStyleSheet(qss)
+
+        accent_qcolor = QColor(accent) if accent else None
         self.toast_manager.set_theme(self.settings.theme)
+        if accent_qcolor:
+            self.toast_manager.set_custom_accent(accent_qcolor)
+
         if hasattr(self, "_jarvis_bg"):
             self._jarvis_bg.set_theme(self.settings.theme)
+            if accent_qcolor:
+                self._jarvis_bg.set_custom_accent(accent_qcolor)
+
+        self._update_accent_button()
         self._load_chat_history()
+
+    def _update_accent_button(self):
+        if not hasattr(self, "_accent_btn") or not shiboken6.isValid(self._accent_btn):
+            return
+        color = self.settings.accent_color or "#2b6cb0"
+        self._accent_btn.setStyleSheet(
+            f"QPushButton {{ background: {color}; color: #fff; border: 1px solid rgba(255, 255, 255, 0.2);"
+            f" border-radius: 8px; padding: 6px 14px; font-weight: 600; }}"
+        )
+        self._accent_btn.setText(self.settings.accent_color.upper() if self.settings.accent_color else "Как в теме")
 
     def _on_theme_changed(self, value: str):
         self.settings.theme = value
@@ -1262,6 +1339,37 @@ class MainWindow(QMainWindow):
         self._hotkey_edit.setKeySequence(QKeySequence("Ctrl+Alt+P"))
         self._on_hotkey_changed()
 
+    def _on_spotlight_hotkey_changed(self):
+        combo = self._spotlight_edit.keySequence().toString()
+        if not combo or combo == self.settings.spotlight_hotkey:
+            return
+        ok, err = self._hotkey.register(HOTKEY_ID_SPOTLIGHT, combo)
+        if ok:
+            self.settings.spotlight_hotkey = combo
+            self._status.setText(f"Быстрая команда: {combo}")
+            logging.info(f"Быстрая команда изменена: {combo}")
+        else:
+            QMessageBox.warning(self, "Быстрая команда", f"Не удалось назначить «{combo}»:\n{err}")
+            self._spotlight_edit.setKeySequence(QKeySequence(self.settings.spotlight_hotkey))
+
+    def _reset_spotlight_hotkey(self):
+        self._spotlight_edit.setKeySequence(QKeySequence("Ctrl+Alt+K"))
+        self._on_spotlight_hotkey_changed()
+
+    def _on_accent_pick(self):
+        initial = QColor(self.settings.accent_color) if self.settings.accent_color else QColor("#2b6cb0")
+        color = QColorDialog.getColor(initial, self, "Выберите цвет акцента")
+        if not color.isValid():
+            return
+        self.settings.accent_color = color.name()
+        self._apply_theme()
+        logging.info(f"Цвет акцента: {color.name()}")
+
+    def _on_accent_reset(self):
+        self.settings.accent_color = ""
+        self._apply_theme()
+        logging.info("Цвет акцента сброшен")
+
     def _on_updates_toggled(self, checked: bool):
         self.settings.check_updates = checked
 
@@ -1285,6 +1393,8 @@ class MainWindow(QMainWindow):
                 "developer_mode": self.settings.developer_mode,
                 "always_on_top": self.settings.always_on_top,
                 "hotkey": self.settings.hotkey,
+                "spotlight_hotkey": self.settings.spotlight_hotkey,
+                "accent_color": self.settings.accent_color,
                 "check_updates": self.settings.check_updates,
                 "quick_commands": self.settings.quick_commands,
             },
@@ -1337,9 +1447,14 @@ class MainWindow(QMainWindow):
 
         hotkey = s.get("hotkey")
         if hotkey:
-            ok, err = self._hotkey.register(hotkey)
+            ok, err = self._hotkey.register(HOTKEY_ID_MAIN, hotkey)
             if ok:
                 self.settings.hotkey = hotkey
+        spot = s.get("spotlight_hotkey")
+        if spot:
+            ok, err = self._hotkey.register(HOTKEY_ID_SPOTLIGHT, spot)
+            if ok:
+                self.settings.spotlight_hotkey = spot
 
         set_always_on_top(self, self.settings.always_on_top)
         self._pin_btn.setIcon(self._icons.get("pin_on" if self.settings.always_on_top else "pin_off", QIcon()))
@@ -1365,6 +1480,7 @@ class MainWindow(QMainWindow):
         self._circle_theme_combo.setCurrentText(self.settings.circle_theme)
         self._browser_path_edit.setText(self.settings.browser_path)
         self._hotkey_edit.setKeySequence(QKeySequence(self.settings.hotkey))
+        self._spotlight_edit.setKeySequence(QKeySequence(self.settings.spotlight_hotkey))
         self._autostart_check.setChecked(autostart_mod.is_autostart_enabled())
         self._updates_check.setChecked(self.settings.check_updates)
         self._dev_mode_check.setChecked(self.settings.developer_mode)
@@ -1460,7 +1576,9 @@ class MainWindow(QMainWindow):
     def _full_exit(self):
         logging.info("Выход из приложения")
         if hasattr(self, "_hotkey") and self._hotkey:
-            self._hotkey.unregister()
+            self._hotkey.unregister_all()
+        if hasattr(self, "_spotlight") and self._spotlight:
+            self._spotlight.close()
         if self._floating:
             self._floating.close()
         if self._tray:
@@ -1470,21 +1588,8 @@ class MainWindow(QMainWindow):
 
     def _log_chat(self, role: str, text: str):
         self.chat_manager.add_message(role, text)
-        prefix = "AssistPiip" if role == "assistant" else "Вы"
-        avatar = self._get_avatar_html(role)
-        color = "#2b6cb0" if role == "assistant" else "#e67e22"
-        html = f"""
-        <div style="margin-bottom: 12px;">
-            {avatar}
-            <div style="margin-left: 40px;">
-                <b style="color: {color};">{prefix}</b> <span style="color: #888; font-size: 11px;">сейчас</span><br>
-                <span>{text}</span>
-            </div>
-        </div>
-        """
-        self._chat_view.append(html)
-        sb = self._chat_view.verticalScrollBar()
-        sb.setValue(sb.maximum())
+        if hasattr(self, "_chat_view") and shiboken6.isValid(self._chat_view):
+            self._chat_view.add_message(role, text, datetime.now().isoformat(timespec="seconds"))
 
     def _title_press(self, event):
         if event.button() == Qt.MouseButton.LeftButton:
@@ -1703,11 +1808,14 @@ class MainWindow(QMainWindow):
             return
         entry = item.data(Qt.ItemDataRole.UserRole)
         menu = QMenu(self)
+        pin_action = menu.addAction("Открепить" if entry.pinned else "📌 Закрепить")
         view_action = menu.addAction("Просмотреть")
         copy_action = menu.addAction("Скопировать обратно")
         delete_action = menu.addAction("Удалить")
         action = menu.exec(self._clipboard_list.mapToGlobal(pos))
-        if action == view_action:
+        if action == pin_action:
+            self.clipboard_manager.toggle_pin(entry)
+        elif action == view_action:
             self._view_clipboard_entry(item)
         elif action == copy_action:
             self.clipboard_manager.copy_entry(entry)

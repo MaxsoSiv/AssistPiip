@@ -20,6 +20,7 @@ class JarvisBackground(QWidget):
 
         self._accent = QColor(43, 108, 176)
         self._base = QColor(15, 17, 21)
+        self._accent_override = None
 
         self._blur_effect = QGraphicsBlurEffect(self)
         self._blur_effect.setBlurRadius(0)
@@ -47,6 +48,10 @@ class JarvisBackground(QWidget):
         elif theme_name == "pink":
             self._accent = QColor(236, 72, 153)
             self._base = QColor(31, 16, 22)
+        self.update()
+
+    def set_custom_accent(self, color):
+        self._accent_override = QColor(color) if color else None
         self.update()
 
     def set_blurred(self, blurred):
@@ -79,6 +84,9 @@ class JarvisBackground(QWidget):
     def paintEvent(self, event):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+
+        if self._accent_override:
+            self._accent = QColor(self._accent_override)
 
         w, h = self.width(), self.height()
         if w <= 0 or h <= 0:

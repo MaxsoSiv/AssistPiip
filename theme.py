@@ -94,7 +94,17 @@ QScrollArea#quickScroll { border: none; background: transparent; }
 QPushButton#quickDeleteButton { background: transparent; color: #888; border: none; padding: 0; border-radius: 11px; font-size: 15px; font-weight: bold; }
 QPushButton#quickDeleteButton:hover { color: #ff5d5d; background: rgba(255, 93, 93, 0.12); }
 QPushButton#quickAddButton { background: rgba(43, 108, 176, 0.22); color: #ffffff; border: 2px solid #2b6cb0; border-radius: 19px; padding: 0; font-size: 21px; font-weight: 800; }
-QPushButton#quickAddButton:hover { background: rgba(43, 108, 176, 0.45); border: 2px solid #3182ce; }"""
+QPushButton#quickAddButton:hover { background: rgba(43, 108, 176, 0.45); border: 2px solid #3182ce; }QListWidget#chatList { background: transparent; border: none; padding: 2px; }
+QListWidget#chatList::item { border: none; }
+QFrame#chatBubbleAssistant { background: rgba(43, 108, 176, 0.18); border: 1px solid rgba(43, 108, 176, 0.5); border-radius: 14px; }
+QFrame#chatBubbleUser { background: rgba(255, 255, 255, 0.09); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 14px; }
+QLabel#chatName { color: #3182ce; font-weight: 600; font-size: 12px; }
+QLabel#chatNameUser { color: #e67e22; font-weight: 600; font-size: 12px; }
+QLabel#chatTime { color: #888; font-size: 10px; }
+QFrame#chatBubbleAssistant QLabel, QFrame#chatBubbleUser QLabel { font-size: 13px; }
+QFrame#spotlightCard { background: rgba(12, 14, 18, 0.95); border: 1px solid #2b6cb0; border-radius: 14px; }
+QLineEdit#spotlightInput { background: transparent; border: none; font-size: 16px; color: #e0e0e0; }
+QLabel#spotlightHint { color: #888; font-size: 11px; }"""
 
 LIGHT_QSS = """
 QMainWindow { background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #e8eaed, stop:1 #f5f6f8); }
@@ -190,7 +200,17 @@ QScrollArea#quickScroll { border: none; background: transparent; }
 QPushButton#quickDeleteButton { background: transparent; color: #888; border: none; padding: 0; border-radius: 11px; font-size: 15px; font-weight: bold; }
 QPushButton#quickDeleteButton:hover { color: #ff5d5d; background: rgba(255, 93, 93, 0.12); }
 QPushButton#quickAddButton { background: rgba(43, 108, 176, 0.22); color: #ffffff; border: 2px solid #2b6cb0; border-radius: 19px; padding: 0; font-size: 21px; font-weight: 800; }
-QPushButton#quickAddButton:hover { background: rgba(43, 108, 176, 0.45); border: 2px solid #3182ce; }"""
+QPushButton#quickAddButton:hover { background: rgba(43, 108, 176, 0.45); border: 2px solid #3182ce; }QListWidget#chatList { background: transparent; border: none; padding: 2px; }
+QListWidget#chatList::item { border: none; }
+QFrame#chatBubbleAssistant { background: rgba(43, 108, 176, 0.18); border: 1px solid rgba(43, 108, 176, 0.5); border-radius: 14px; }
+QFrame#chatBubbleUser { background: rgba(255, 255, 255, 0.75); border: 1px solid rgba(20, 24, 30, 0.16); border-radius: 14px; }
+QLabel#chatName { color: #3182ce; font-weight: 600; font-size: 12px; }
+QLabel#chatNameUser { color: #e67e22; font-weight: 600; font-size: 12px; }
+QLabel#chatTime { color: #888; font-size: 10px; }
+QFrame#chatBubbleAssistant QLabel, QFrame#chatBubbleUser QLabel { font-size: 13px; }
+QFrame#spotlightCard { background: rgba(255, 255, 255, 0.96); border: 1px solid #2b6cb0; border-radius: 14px; }
+QLineEdit#spotlightInput { background: transparent; border: none; font-size: 16px; color: #1a1b1e; }
+QLabel#spotlightHint { color: #888; font-size: 11px; }"""
 
 OCEAN_QSS = """
 QMainWindow { background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #0a192f, stop:1 #173a5e); }
@@ -286,7 +306,17 @@ QScrollArea#quickScroll { border: none; background: transparent; }
 QPushButton#quickDeleteButton { background: transparent; color: #888; border: none; padding: 0; border-radius: 11px; font-size: 15px; font-weight: bold; }
 QPushButton#quickDeleteButton:hover { color: #ff5d5d; background: rgba(255, 93, 93, 0.12); }
 QPushButton#quickAddButton { background: rgba(0, 180, 216, 0.22); color: #ffffff; border: 2px solid #00b4d8; border-radius: 19px; padding: 0; font-size: 21px; font-weight: 800; }
-QPushButton#quickAddButton:hover { background: rgba(0, 180, 216, 0.45); border: 2px solid #48cae4; }"""
+QPushButton#quickAddButton:hover { background: rgba(0, 180, 216, 0.45); border: 2px solid #48cae4; }QListWidget#chatList { background: transparent; border: none; padding: 2px; }
+QListWidget#chatList::item { border: none; }
+QFrame#chatBubbleAssistant { background: rgba(0, 180, 216, 0.18); border: 1px solid rgba(0, 180, 216, 0.5); border-radius: 14px; }
+QFrame#chatBubbleUser { background: rgba(255, 255, 255, 0.09); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 14px; }
+QLabel#chatName { color: #48cae4; font-weight: 600; font-size: 12px; }
+QLabel#chatNameUser { color: #e67e22; font-weight: 600; font-size: 12px; }
+QLabel#chatTime { color: #5f7799; font-size: 10px; }
+QFrame#chatBubbleAssistant QLabel, QFrame#chatBubbleUser QLabel { font-size: 13px; }
+QFrame#spotlightCard { background: rgba(12, 14, 18, 0.95); border: 1px solid #00b4d8; border-radius: 14px; }
+QLineEdit#spotlightInput { background: transparent; border: none; font-size: 16px; color: #c9d6e8; }
+QLabel#spotlightHint { color: #5f7799; font-size: 11px; }"""
 
 SUNSET_QSS = """
 QMainWindow { background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #2b0d0d, stop:1 #4a1c15); }
@@ -382,7 +412,17 @@ QScrollArea#quickScroll { border: none; background: transparent; }
 QPushButton#quickDeleteButton { background: transparent; color: #888; border: none; padding: 0; border-radius: 11px; font-size: 15px; font-weight: bold; }
 QPushButton#quickDeleteButton:hover { color: #ff5d5d; background: rgba(255, 93, 93, 0.12); }
 QPushButton#quickAddButton { background: rgba(252, 163, 17, 0.22); color: #ffffff; border: 2px solid #fca311; border-radius: 19px; padding: 0; font-size: 21px; font-weight: 800; }
-QPushButton#quickAddButton:hover { background: rgba(252, 163, 17, 0.45); border: 2px solid #ffb703; }"""
+QPushButton#quickAddButton:hover { background: rgba(252, 163, 17, 0.45); border: 2px solid #ffb703; }QListWidget#chatList { background: transparent; border: none; padding: 2px; }
+QListWidget#chatList::item { border: none; }
+QFrame#chatBubbleAssistant { background: rgba(252, 163, 17, 0.18); border: 1px solid rgba(252, 163, 17, 0.5); border-radius: 14px; }
+QFrame#chatBubbleUser { background: rgba(255, 255, 255, 0.09); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 14px; }
+QLabel#chatName { color: #ffb703; font-weight: 600; font-size: 12px; }
+QLabel#chatNameUser { color: #e67e22; font-weight: 600; font-size: 12px; }
+QLabel#chatTime { color: #8a5a4a; font-size: 10px; }
+QFrame#chatBubbleAssistant QLabel, QFrame#chatBubbleUser QLabel { font-size: 13px; }
+QFrame#spotlightCard { background: rgba(12, 14, 18, 0.95); border: 1px solid #fca311; border-radius: 14px; }
+QLineEdit#spotlightInput { background: transparent; border: none; font-size: 16px; color: #fdf0d5; }
+QLabel#spotlightHint { color: #8a5a4a; font-size: 11px; }"""
 
 PURPLE_QSS = """
 QMainWindow {
@@ -480,7 +520,17 @@ QScrollArea#quickScroll { border: none; background: transparent; }
 QPushButton#quickDeleteButton { background: transparent; color: #888; border: none; padding: 0; border-radius: 11px; font-size: 15px; font-weight: bold; }
 QPushButton#quickDeleteButton:hover { color: #ff5d5d; background: rgba(255, 93, 93, 0.12); }
 QPushButton#quickAddButton { background: rgba(139, 92, 246, 0.22); color: #ffffff; border: 2px solid #8b5cf6; border-radius: 19px; padding: 0; font-size: 21px; font-weight: 800; }
-QPushButton#quickAddButton:hover { background: rgba(139, 92, 246, 0.45); border: 2px solid #a78bfa; }"""
+QPushButton#quickAddButton:hover { background: rgba(139, 92, 246, 0.45); border: 2px solid #a78bfa; }QListWidget#chatList { background: transparent; border: none; padding: 2px; }
+QListWidget#chatList::item { border: none; }
+QFrame#chatBubbleAssistant { background: rgba(139, 92, 246, 0.18); border: 1px solid rgba(139, 92, 246, 0.5); border-radius: 14px; }
+QFrame#chatBubbleUser { background: rgba(255, 255, 255, 0.09); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 14px; }
+QLabel#chatName { color: #a78bfa; font-weight: 600; font-size: 12px; }
+QLabel#chatNameUser { color: #e67e22; font-weight: 600; font-size: 12px; }
+QLabel#chatTime { color: #9a8fb8; font-size: 10px; }
+QFrame#chatBubbleAssistant QLabel, QFrame#chatBubbleUser QLabel { font-size: 13px; }
+QFrame#spotlightCard { background: rgba(12, 14, 18, 0.95); border: 1px solid #8b5cf6; border-radius: 14px; }
+QLineEdit#spotlightInput { background: transparent; border: none; font-size: 16px; color: #e8e4f6; }
+QLabel#spotlightHint { color: #9a8fb8; font-size: 11px; }"""
 
 PINK_QSS = """
 QMainWindow {
@@ -578,7 +628,17 @@ QScrollArea#quickScroll { border: none; background: transparent; }
 QPushButton#quickDeleteButton { background: transparent; color: #888; border: none; padding: 0; border-radius: 11px; font-size: 15px; font-weight: bold; }
 QPushButton#quickDeleteButton:hover { color: #ff5d5d; background: rgba(255, 93, 93, 0.12); }
 QPushButton#quickAddButton { background: rgba(236, 72, 153, 0.22); color: #ffffff; border: 2px solid #ec4899; border-radius: 19px; padding: 0; font-size: 21px; font-weight: 800; }
-QPushButton#quickAddButton:hover { background: rgba(236, 72, 153, 0.45); border: 2px solid #f472b6; }"""
+QPushButton#quickAddButton:hover { background: rgba(236, 72, 153, 0.45); border: 2px solid #f472b6; }QListWidget#chatList { background: transparent; border: none; padding: 2px; }
+QListWidget#chatList::item { border: none; }
+QFrame#chatBubbleAssistant { background: rgba(236, 72, 153, 0.18); border: 1px solid rgba(236, 72, 153, 0.5); border-radius: 14px; }
+QFrame#chatBubbleUser { background: rgba(255, 255, 255, 0.09); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 14px; }
+QLabel#chatName { color: #f472b6; font-weight: 600; font-size: 12px; }
+QLabel#chatNameUser { color: #e67e22; font-weight: 600; font-size: 12px; }
+QLabel#chatTime { color: #b08a9c; font-size: 10px; }
+QFrame#chatBubbleAssistant QLabel, QFrame#chatBubbleUser QLabel { font-size: 13px; }
+QFrame#spotlightCard { background: rgba(12, 14, 18, 0.95); border: 1px solid #ec4899; border-radius: 14px; }
+QLineEdit#spotlightInput { background: transparent; border: none; font-size: 16px; color: #f7e9f0; }
+QLabel#spotlightHint { color: #b08a9c; font-size: 11px; }"""
 
 THEMES = {
     "dark": DARK_QSS,
@@ -588,3 +648,34 @@ THEMES = {
     "purple": PURPLE_QSS,
     "pink": PINK_QSS,
 }
+
+
+THEME_ACCENTS = {
+    "dark": ("#2b6cb0", "#3182ce", "#245a97"),
+    "light": ("#2b6cb0", "#3182ce", "#245a97"),
+    "ocean": ("#00b4d8", "#48cae4", "#0094b5"),
+    "sunset": ("#fca311", "#ffb703", "#d98c0a"),
+    "purple": ("#8b5cf6", "#a78bfa", "#6d47d1"),
+    "pink": ("#ec4899", "#f472b6", "#c2357c"),
+}
+
+
+def _mix_hex(hex1, hex2, t):
+    a = [int(hex1[i:i + 2], 16) for i in (1, 3, 5)]
+    b = [int(hex2[i:i + 2], 16) for i in (1, 3, 5)]
+    m = [round(x + (y - x) * t) for x, y in zip(a, b)]
+    return "#%02x%02x%02x" % tuple(m)
+
+
+def apply_accent(qss: str, theme_name: str, accent_hex: str) -> str:
+    base, hover, pressed = THEME_ACCENTS.get(theme_name, THEME_ACCENTS["dark"])
+    new_hover = _mix_hex(accent_hex, "#ffffff", 0.25)
+    new_pressed = _mix_hex(accent_hex, "#000000", 0.2)
+    for old, new in ((base, accent_hex), (hover, new_hover), (pressed, new_pressed)):
+        qss = qss.replace(old, new)
+        r, g, b = int(old[1:3], 16), int(old[3:5], 16), int(old[5:7], 16)
+        qss = qss.replace(
+            f"rgba({r}, {g}, {b},",
+            f"rgba({int(new[1:3], 16)}, {int(new[3:5], 16)}, {int(new[5:7], 16)},",
+        )
+    return qss

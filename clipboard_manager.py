@@ -9,17 +9,18 @@ from PySide6.QtGui import QGuiApplication, QImage
 
 
 class ClipboardEntry:
-    def __init__(self, kind: str, content: str, created: str = None):
+    def __init__(self, kind: str, content: str, created: str = None, pinned: bool = False):
         self.kind = kind
         self.content = content
         self.created = created or datetime.now().isoformat(timespec="seconds")
+        self.pinned = pinned
 
     def to_dict(self) -> dict:
-        return {"kind": self.kind, "content": self.content, "created": self.created}
+        return {"kind": self.kind, "content": self.content, "created": self.created, "pinned": self.pinned}
 
     @classmethod
     def from_dict(cls, data: dict) -> "ClipboardEntry":
-        return cls(data["kind"], data["content"], data.get("created"))
+        return cls(data["kind"], data["content"], data.get("created"), data.get("pinned", False))
 
 
 class ClipboardManager(QObject):
@@ -69,7 +70,10 @@ class ClipboardManager(QObject):
 
     def _trim(self):
         while len(self._entries) > self._limit:
-            old = self._entries.pop(0)
+            idx = next((i for i, e in enumerate(self._entries) if not e.pinned), None)
+            if idx is None:
+                break
+            old = self._entries.pop(idx)
             if old.kind == "image" and os.path.exists(old.content):
                 try:
                     os.remove(old.content)
@@ -143,7 +147,17 @@ class ClipboardManager(QObject):
         self._self_copy = False
 
     def all_entries(self) -> list[ClipboardEntry]:
-        return list(reversed(self._entries))
+        pinned = [e for e in self._entries if e.pinned]
+        rest = [e for e in self._entries if not e.pinned]
+        return list(reversed(pinned)) + list(reversed(rest))
+
+    def toggle_pin(self, entry: ClipboardEntry):
+        try:
+            idx = self._entries.index(entry)
+        except ValueError:
+            return
+        self._entries[idx].pinned = not self._entries[idx].pinned
+        self._save()
 
     def remove_entry(self, entry: ClipboardEntry):
         if entry in self._entries:
@@ -156,12 +170,13 @@ class ClipboardManager(QObject):
             self._save()
 
     def clear_all(self):
-        for entry in self._entries:
+        removed = [e for e in self._entries if not e.pinned]
+        self._entries = [e for e in self._entries if e.pinned]
+        for entry in removed:
             if entry.kind == "image" and os.path.exists(entry.content):
                 try:
                     os.remove(entry.content)
                 except OSError:
                     pass
-        self._entries.clear()
         self._last_hash = None
         self._save()

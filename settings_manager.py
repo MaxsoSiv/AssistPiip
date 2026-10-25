@@ -106,6 +106,22 @@ class SettingsManager(QObject):
         self.set("check_updates", value)
 
     @property
+    def accent_color(self) -> str:
+        return self.get("accent_color", "")
+
+    @accent_color.setter
+    def accent_color(self, value: str):
+        self.set("accent_color", value)
+
+    @property
+    def spotlight_hotkey(self) -> str:
+        return self.get("spotlight_hotkey", "Ctrl+Alt+K")
+
+    @spotlight_hotkey.setter
+    def spotlight_hotkey(self, value: str):
+        self.set("spotlight_hotkey", value)
+
+    @property
     def quick_commands(self) -> list[str]:
         val = self.get("quick_commands", None)
         if val is None:
