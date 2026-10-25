@@ -91,9 +91,9 @@ QKeySequenceEdit { background: #2b2d31; color: #ddd; border: 1px solid #3a3d42; 
 QWidget#quickItem { background: transparent; }
 QWidget#quickContainer { background: transparent; }
 QScrollArea#quickScroll { border: none; background: transparent; }
-QPushButton#quickDeleteButton { background: transparent; color: #888; border: none; border-radius: 11px; font-size: 15px; font-weight: bold; }
+QPushButton#quickDeleteButton { background: transparent; color: #888; border: none; padding: 0; border-radius: 11px; font-size: 15px; font-weight: bold; }
 QPushButton#quickDeleteButton:hover { color: #ff5d5d; background: rgba(255, 93, 93, 0.12); }
-QPushButton#quickAddButton { background: rgba(43, 108, 176, 0.22); color: #3182ce; border: 2px solid #2b6cb0; border-radius: 19px; font-size: 21px; font-weight: 800; }
+QPushButton#quickAddButton { background: rgba(43, 108, 176, 0.22); color: #ffffff; border: 2px solid #2b6cb0; border-radius: 19px; padding: 0; font-size: 21px; font-weight: 800; }
 QPushButton#quickAddButton:hover { background: rgba(43, 108, 176, 0.45); border: 2px solid #3182ce; }"""
 
 LIGHT_QSS = """
@@ -187,9 +187,9 @@ QKeySequenceEdit { background: #ffffff; color: #1a1b1e; border: 1px solid #c0c3c
 QWidget#quickItem { background: transparent; }
 QWidget#quickContainer { background: transparent; }
 QScrollArea#quickScroll { border: none; background: transparent; }
-QPushButton#quickDeleteButton { background: transparent; color: #888; border: none; border-radius: 11px; font-size: 15px; font-weight: bold; }
+QPushButton#quickDeleteButton { background: transparent; color: #888; border: none; padding: 0; border-radius: 11px; font-size: 15px; font-weight: bold; }
 QPushButton#quickDeleteButton:hover { color: #ff5d5d; background: rgba(255, 93, 93, 0.12); }
-QPushButton#quickAddButton { background: rgba(43, 108, 176, 0.22); color: #3182ce; border: 2px solid #2b6cb0; border-radius: 19px; font-size: 21px; font-weight: 800; }
+QPushButton#quickAddButton { background: rgba(43, 108, 176, 0.22); color: #ffffff; border: 2px solid #2b6cb0; border-radius: 19px; padding: 0; font-size: 21px; font-weight: 800; }
 QPushButton#quickAddButton:hover { background: rgba(43, 108, 176, 0.45); border: 2px solid #3182ce; }"""
 
 OCEAN_QSS = """
@@ -283,9 +283,9 @@ QKeySequenceEdit { background: #112240; color: #c9d6e8; border: 1px solid #1d355
 QWidget#quickItem { background: transparent; }
 QWidget#quickContainer { background: transparent; }
 QScrollArea#quickScroll { border: none; background: transparent; }
-QPushButton#quickDeleteButton { background: transparent; color: #888; border: none; border-radius: 11px; font-size: 15px; font-weight: bold; }
+QPushButton#quickDeleteButton { background: transparent; color: #888; border: none; padding: 0; border-radius: 11px; font-size: 15px; font-weight: bold; }
 QPushButton#quickDeleteButton:hover { color: #ff5d5d; background: rgba(255, 93, 93, 0.12); }
-QPushButton#quickAddButton { background: rgba(0, 180, 216, 0.22); color: #48cae4; border: 2px solid #00b4d8; border-radius: 19px; font-size: 21px; font-weight: 800; }
+QPushButton#quickAddButton { background: rgba(0, 180, 216, 0.22); color: #ffffff; border: 2px solid #00b4d8; border-radius: 19px; padding: 0; font-size: 21px; font-weight: 800; }
 QPushButton#quickAddButton:hover { background: rgba(0, 180, 216, 0.45); border: 2px solid #48cae4; }"""
 
 SUNSET_QSS = """
@@ -379,9 +379,9 @@ QKeySequenceEdit { background: #3d1414; color: #fdf0d5; border: 1px solid #5e281
 QWidget#quickItem { background: transparent; }
 QWidget#quickContainer { background: transparent; }
 QScrollArea#quickScroll { border: none; background: transparent; }
-QPushButton#quickDeleteButton { background: transparent; color: #888; border: none; border-radius: 11px; font-size: 15px; font-weight: bold; }
+QPushButton#quickDeleteButton { background: transparent; color: #888; border: none; padding: 0; border-radius: 11px; font-size: 15px; font-weight: bold; }
 QPushButton#quickDeleteButton:hover { color: #ff5d5d; background: rgba(255, 93, 93, 0.12); }
-QPushButton#quickAddButton { background: rgba(252, 163, 17, 0.22); color: #ffb703; border: 2px solid #fca311; border-radius: 19px; font-size: 21px; font-weight: 800; }
+QPushButton#quickAddButton { background: rgba(252, 163, 17, 0.22); color: #ffffff; border: 2px solid #fca311; border-radius: 19px; padding: 0; font-size: 21px; font-weight: 800; }
 QPushButton#quickAddButton:hover { background: rgba(252, 163, 17, 0.45); border: 2px solid #ffb703; }"""
 
 PURPLE_QSS = """
@@ -477,9 +477,9 @@ QKeySequenceEdit { background: #2a2140; color: #d9d2ee; border: 1px solid #3d316
 QWidget#quickItem { background: transparent; }
 QWidget#quickContainer { background: transparent; }
 QScrollArea#quickScroll { border: none; background: transparent; }
-QPushButton#quickDeleteButton { background: transparent; color: #888; border: none; border-radius: 11px; font-size: 15px; font-weight: bold; }
+QPushButton#quickDeleteButton { background: transparent; color: #888; border: none; padding: 0; border-radius: 11px; font-size: 15px; font-weight: bold; }
 QPushButton#quickDeleteButton:hover { color: #ff5d5d; background: rgba(255, 93, 93, 0.12); }
-QPushButton#quickAddButton { background: rgba(139, 92, 246, 0.22); color: #a78bfa; border: 2px solid #8b5cf6; border-radius: 19px; font-size: 21px; font-weight: 800; }
+QPushButton#quickAddButton { background: rgba(139, 92, 246, 0.22); color: #ffffff; border: 2px solid #8b5cf6; border-radius: 19px; padding: 0; font-size: 21px; font-weight: 800; }
 QPushButton#quickAddButton:hover { background: rgba(139, 92, 246, 0.45); border: 2px solid #a78bfa; }"""
 
 PINK_QSS = """
@@ -575,9 +575,9 @@ QKeySequenceEdit { background: #3a2030; color: #f0d9e5; border: 1px solid #522f4
 QWidget#quickItem { background: transparent; }
 QWidget#quickContainer { background: transparent; }
 QScrollArea#quickScroll { border: none; background: transparent; }
-QPushButton#quickDeleteButton { background: transparent; color: #888; border: none; border-radius: 11px; font-size: 15px; font-weight: bold; }
+QPushButton#quickDeleteButton { background: transparent; color: #888; border: none; padding: 0; border-radius: 11px; font-size: 15px; font-weight: bold; }
 QPushButton#quickDeleteButton:hover { color: #ff5d5d; background: rgba(255, 93, 93, 0.12); }
-QPushButton#quickAddButton { background: rgba(236, 72, 153, 0.22); color: #f472b6; border: 2px solid #ec4899; border-radius: 19px; font-size: 21px; font-weight: 800; }
+QPushButton#quickAddButton { background: rgba(236, 72, 153, 0.22); color: #ffffff; border: 2px solid #ec4899; border-radius: 19px; padding: 0; font-size: 21px; font-weight: 800; }
 QPushButton#quickAddButton:hover { background: rgba(236, 72, 153, 0.45); border: 2px solid #f472b6; }"""
 
 THEMES = {
