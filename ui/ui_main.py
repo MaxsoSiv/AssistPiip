@@ -23,32 +23,36 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, QBuffer, QIODevice, QObject, QSize, QTimer, Signal
 from PySide6.QtGui import QIcon, QPixmapCache, QPixmap, QPainter, QLinearGradient, QColor, QFont, QCursor, QKeySequence
 
-from settings_manager import SettingsManager
-from command_manager import CommandManager, Command
-from notes_manager import NotesManager, Note
-from chat_manager import ChatManager
-from clipboard_manager import ClipboardManager, ClipboardEntry
-from reminders import ReminderManager, parse_when
-from toast import ToastManager
-from fuzzy_matcher import FuzzyMatcher
-from floating_widget import FloatingCircle
-from utils import open_path, open_url, set_always_on_top, get_app_dir, APP_VERSION
-import updater
-import backup_manager
-from hotkey_manager import HotkeyManager, HOTKEY_ID_MAIN, HOTKEY_ID_SPOTLIGHT, HOTKEY_ID_SELECTION
-from calculator import CalculatorPage, SafeEvaluator
-from monitor_page import MonitorPage
-from translator import TranslatorPage
-from jarvis_bg import JarvisBackground
-from about_dialog import AboutDialog
-from theme import THEMES, apply_accent
-from chat_view import ChatView
-from spotlight import Spotlight
-from secrets_store import save_secret, delete_secret, has_secret, load_secret
-from llm_provider import LLMClient, LLMError, strip_html
-from selection_capture import capture_selection
-from selection_popup import SelectionPopup
-import autostart as autostart_mod
+from core.settings_manager import SettingsManager
+from core.command_manager import CommandManager, Command
+from core.notes_manager import NotesManager, Note
+from core.chat_manager import ChatManager
+from core.clipboard_manager import ClipboardManager, ClipboardEntry
+from core.reminders import ReminderManager, parse_when
+from ui.toast import ToastManager
+from core.fuzzy_matcher import FuzzyMatcher
+from ui.floating_widget import FloatingCircle
+from core.utils import open_path, open_url, set_always_on_top, get_app_dir, get_asset_dir, APP_VERSION
+from core import updater
+from core import backup_manager
+from core.md_render import md_to_html
+from core.stats_manager import StatsManager
+from core.voice_recognition import available as voice_available, install_hint as voice_install_hint
+from win.hotkey_manager import HotkeyManager, HOTKEY_ID_MAIN, HOTKEY_ID_SPOTLIGHT, HOTKEY_ID_SELECTION, HOTKEY_ID_VOICE
+from ui.calculator import CalculatorPage, SafeEvaluator
+from ui.monitor_page import MonitorPage
+from ui.translator import TranslatorPage
+from ui.jarvis_bg import JarvisBackground
+from ui.about_dialog import AboutDialog
+from ui.theme import THEMES, apply_accent
+from ui.chat_view import ChatView
+from ui.spotlight import Spotlight
+from core.secrets_store import save_secret, delete_secret, has_secret, load_secret
+from core.llm_provider import LLMClient, LLMError, strip_html
+from win.selection_capture import capture_selection
+from ui.selection_popup import SelectionPopup
+from ui.voice_input import VoicePopup
+from win import autostart as autostart_mod
 
 
 PAGE_MAIN = 0
@@ -136,15 +140,15 @@ class MainWindow(QMainWindow):
         self.setMinimumSize(900, 600)
         self.resize(1000, 700)
 
-        base = get_app_dir()
+        asset_base = get_asset_dir()
         self._icons = {}
         for name in ["main", "settings", "calculator", "notes", "commands", "clipboard", "monitor", "translate",
                      "collapse", "exit", "pin_on", "pin_off", "minimize", "maximize", "close"]:
-            path = os.path.join(base, "icons", f"{name}.png")
+            path = os.path.join(asset_base, "icons", f"{name}.png")
             if os.path.exists(path):
                 self._icons[name] = QIcon(path)
 
-        icon_path = os.path.join(base, "icon.ico")
+        icon_path = os.path.join(asset_base, "icon.ico")
         if os.path.exists(icon_path):
             self.setWindowIcon(QIcon(icon_path))
 
@@ -152,7 +156,7 @@ class MainWindow(QMainWindow):
         self._always_on_top = self.settings.always_on_top
         self._last_page_index = PAGE_MAIN
 
-        data_dir = os.path.join(base, "data")
+        data_dir = os.path.join(get_app_dir(), "data")
         self.matcher = FuzzyMatcher(threshold=80)
         self.command_manager = CommandManager(settings, data_dir)
         self.notes_manager = NotesManager(data_dir)
@@ -160,6 +164,8 @@ class MainWindow(QMainWindow):
         self.clipboard_manager = ClipboardManager(data_dir, limit=50)
         self.reminder_manager = ReminderManager(data_dir)
         self.toast_manager = ToastManager(self.settings.theme)
+        self.stats_manager = StatsManager(data_dir)
+        self.command_manager.set_selection_provider(self._safe_capture_selection)
         self.reminder_manager.triggered.connect(self._on_reminder)
         self._clipboard_search_query = ""
 
@@ -220,6 +226,16 @@ class MainWindow(QMainWindow):
         self._selection_popup = SelectionPopup(self)
         self._selection_popup.set_llm_client(self._make_llm_client())
 
+        self._voice_popup = VoicePopup(self)
+        self._voice_popup.insert_requested.connect(self._on_voice_insert)
+        self._voice_warned = False
+
+        ok, err = self._hotkey.register(HOTKEY_ID_VOICE, self.settings.voice_hotkey)
+        if ok:
+            logging.info(f"Голосовой ввод: {self.settings.voice_hotkey}")
+        else:
+            logging.warning(f"Голосовой ввод {self.settings.voice_hotkey} не назначен: {err}")
+
         self._clock_timer = QTimer(self)
         self._clock_timer.setInterval(1000)
         self._clock_timer.timeout.connect(self._update_circle_countdown)
@@ -236,6 +252,9 @@ class MainWindow(QMainWindow):
                 return True, 0
             if msg.wParam == HOTKEY_ID_SELECTION:
                 self._toggle_selection_popup()
+                return True, 0
+            if msg.wParam == HOTKEY_ID_VOICE:
+                self._toggle_voice_popup()
                 return True, 0
         return super().nativeEvent(eventType, message)
 
@@ -278,13 +297,42 @@ class MainWindow(QMainWindow):
         self._selection_worker.finished.connect(self._on_selection_captured)
         self._selection_worker.start()
 
+    def _safe_capture_selection(self) -> str:
+        try:
+            return capture_selection() or ""
+        except Exception as e:
+            logging.error(f"Захват выделенного текста не удался: {e}")
+            return ""
+
+    def _toggle_voice_popup(self):
+        if self._voice_popup.isVisible():
+            self._voice_popup.cancel()
+            return
+        if not voice_available():
+            if not self._voice_warned:
+                self._voice_warned = True
+                self.toast_manager.show_toast("Голосовой ввод", voice_install_hint())
+            return
+        self._voice_popup.start(self.settings.voice_language)
+
+    def _on_voice_insert(self, text):
+        self._restore_from_circle()
+        self._on_nav(PAGE_MAIN)
+        self._input.setText(text)
+        self._input.setFocus()
+        self._input.setCursorPosition(len(text))
+
     def _on_selection_captured(self, result):
         self._selection_worker.deleteLater()
         self._selection_worker = None
         if not shiboken6.isValid(self):
             return
         if not result["ok"] or not result["data"]:
-            self.toast_manager.show_toast("Выделенный текст", "Не удалось захватить выделенный текст")
+            self.toast_manager.show_toast(
+                "Выделенный текст",
+                "Не удалось захватить текст. Выделите его и нажмите хоткей ещё раз. "
+                "В окнах с правами администратора захват не работает.",
+            )
             return
         self._selection_popup.set_llm_client(self._make_llm_client())
         self._selection_popup.open_with_text(result["data"])
@@ -292,13 +340,16 @@ class MainWindow(QMainWindow):
     def _make_llm_client(self) -> LLMClient | None:
         if not self.settings.ai_enabled:
             return None
-        key = load_secret("ai_api_key")
-        if not key:
-            return None
         base_url = self.settings.ai_base_url.strip()
         model = self.settings.ai_model.strip()
         if not base_url or not model:
             return None
+        key = load_secret("ai_api_key")
+        if not key:
+            if "localhost" in base_url or "127.0.0.1" in base_url:
+                key = "ollama"
+            else:
+                return None
         return LLMClient(base_url, key, model)
 
     def _ai_system_prompt(self) -> str:
@@ -350,7 +401,9 @@ class MainWindow(QMainWindow):
         usage = result.get("usage")
         if usage:
             logging.info(f"AI usage: {usage}")
-        self.chat_manager.add_message("assistant", html.escape(content))
+        rendered = md_to_html(content)
+        self.chat_manager.add_message("assistant", rendered)
+        self._chat_view.render_last_as_html(rendered)
         self._ai_worker.deleteLater()
         self._ai_worker = None
         self._ai_buffer = ""
@@ -506,7 +559,7 @@ class MainWindow(QMainWindow):
         layout.setContentsMargins(14, 0, 8, 0)
         layout.setSpacing(8)
 
-        base = get_app_dir()
+        base = get_asset_dir()
         app_icon_path = os.path.join(base, "app_icon.png")
         if os.path.exists(app_icon_path):
             icon_label = QLabel()
@@ -575,6 +628,20 @@ class MainWindow(QMainWindow):
         layout = QVBoxLayout(sidebar)
         layout.setContentsMargins(10, 16, 10, 12)
         layout.setSpacing(4)
+
+        brand_row = QHBoxLayout()
+        brand_row.setSpacing(8)
+        brand_mark = QLabel("P")
+        brand_mark.setObjectName("sidebarBrandMark")
+        brand_mark.setFixedSize(26, 26)
+        brand_mark.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        brand_name = QLabel("AssistPiip")
+        brand_name.setObjectName("sidebarBrandName")
+        brand_row.addWidget(brand_mark)
+        brand_row.addWidget(brand_name)
+        brand_row.addStretch()
+        layout.addLayout(brand_row)
+        layout.addSpacing(10)
 
         nav_buttons = [
             ("Главное меню", "main", PAGE_MAIN),
@@ -778,9 +845,11 @@ class MainWindow(QMainWindow):
                 has_items = True
 
         custom_cmds = self.command_manager.all_commands()
+        custom_cmds.sort(key=lambda c: self.stats_manager.count(c.trigger), reverse=True)
         for cmd in custom_cmds:
             if cmd.trigger not in current_quick:
-                action = menu.addAction(f"[Своя] {cmd.trigger}")
+                label = "[Плагин] " if cmd.source == "plugin" else "[Своя] "
+                action = menu.addAction(label + cmd.trigger)
                 action.setData(cmd.trigger)
                 has_items = True
 
@@ -970,6 +1039,33 @@ class MainWindow(QMainWindow):
         ai_hint.setStyleSheet("color: #888; font-size: 11px;")
         ai_hint.setWordWrap(True)
         form.addRow("", ai_hint)
+
+        ollama_btn = QPushButton("Пресет Ollama (локально, без ключа)")
+        ollama_btn.setObjectName("secondaryButton")
+        ollama_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        ollama_btn.setToolTip("Настроить Base URL на локальную Ollama. Модель впишите свою, например llama3.1 или qwen2.5")
+        ollama_btn.clicked.connect(self._on_ollama_preset)
+        form.addRow("Локальная модель:", ollama_btn)
+
+        voice_row = QHBoxLayout()
+        self._voice_hotkey_edit = QKeySequenceEdit(QKeySequence(self.settings.voice_hotkey))
+        self._voice_hotkey_edit.setToolTip("Например Ctrl+Alt+V. Аудио отправляется в сервис распознавания Google только пока вы говорите.")
+        self._voice_hotkey_edit.editingFinished.connect(self._on_voice_hotkey_changed)
+        voice_row.addWidget(self._voice_hotkey_edit)
+        voice_reset_btn = QPushButton("По умолчанию")
+        voice_reset_btn.setObjectName("secondaryButton")
+        voice_reset_btn.clicked.connect(self._reset_voice_hotkey)
+        voice_row.addWidget(voice_reset_btn)
+        form.addRow("Голосовой ввод:", voice_row)
+
+        self._voice_lang_combo = QComboBox()
+        for name, code in (("Русский", "ru-RU"), ("English", "en-US"), ("Українська", "uk-UA"), ("Deutsch", "de-DE")):
+            self._voice_lang_combo.addItem(name, code)
+        idx = self._voice_lang_combo.findData(self.settings.voice_language)
+        if idx >= 0:
+            self._voice_lang_combo.setCurrentIndex(idx)
+        self._voice_lang_combo.currentIndexChanged.connect(self._on_voice_lang_changed)
+        form.addRow("Язык речи:", self._voice_lang_combo)
 
         self._updates_check = QCheckBox("Проверять обновления при запуске")
         self._updates_check.setChecked(self.settings.check_updates)
@@ -1294,7 +1390,7 @@ class MainWindow(QMainWindow):
                 self._input_history.pop(0)
         self._hist_index = 0
         self._log_chat("user", text)
-        logging.info(f"Ввод команды: {text}")
+        logging.info(f"Ввод команды: {text.replace(chr(10), ' ')}")
 
         if text.startswith("="):
             self._run_chat_calculator(text[1:].strip())
@@ -1306,6 +1402,7 @@ class MainWindow(QMainWindow):
 
         cmd = self.command_manager.find_by_trigger(text)
         if cmd:
+            self.stats_manager.increment(cmd.trigger)
             self._log_chat("assistant", f"Выполняю: {cmd.trigger}")
             logging.info(f"Выполнение кастомной команды: {cmd.trigger}")
             self.command_manager.execute_actions(cmd)
@@ -1313,6 +1410,7 @@ class MainWindow(QMainWindow):
 
         builtin = self._match_builtin(text)
         if builtin:
+            self.stats_manager.increment(builtin)
             self._run_builtin(builtin, text)
             return
 
@@ -1321,6 +1419,7 @@ class MainWindow(QMainWindow):
         if best:
             found = self.command_manager.find_by_trigger(best)
             if found:
+                self.stats_manager.increment(found.trigger)
                 self._log_chat("assistant", f"Нечёткое совпадение: «{html.escape(text)}» → «{html.escape(best)}»")
                 logging.info(f"Нечёткое совпадение: {text} -> {best}")
                 self.command_manager.execute_actions(found)
@@ -1526,6 +1625,8 @@ class MainWindow(QMainWindow):
             "Отмена: «таймер отмена», «напомни отмена», «напомни отмена 2» (по номеру из списка).\n"
             "Спотлайт: мини-строка у курсора — ищет команды, заметки и буфер обмена.\n"
             "Выделенный текст: хоткей захватывает выделенное и предлагает перевод и AI-действия.\n"
+            "Голосовой ввод: хоткей записывает речь и превращает её в текст поля ввода.\n"
+            "Шаблоны команд: подставьте {selection} или {clipboard} в действие — при запуске вместо них вставится выделенный текст или буфер.\n"
             + ai_line +
             "Также можно создавать свои команды во вкладке «Команды»."
         )
@@ -1801,6 +1902,34 @@ class MainWindow(QMainWindow):
         self._selection_hotkey_edit.setKeySequence(QKeySequence("Ctrl+Alt+T"))
         self._on_selection_hotkey_changed()
 
+    def _on_voice_hotkey_changed(self):
+        combo = self._voice_hotkey_edit.keySequence().toString()
+        if not combo or combo == self.settings.voice_hotkey:
+            return
+        ok, err = self._hotkey.register(HOTKEY_ID_VOICE, combo)
+        if ok:
+            self.settings.voice_hotkey = combo
+            self._status.setText(f"Голосовой ввод: {combo}")
+            logging.info(f"Хоткей голосового ввода изменен: {combo}")
+        else:
+            QMessageBox.warning(self, "Голосовой ввод", f"Не удалось назначить «{combo}»:\n{err}")
+            self._voice_hotkey_edit.setKeySequence(QKeySequence(self.settings.voice_hotkey))
+
+    def _reset_voice_hotkey(self):
+        self._voice_hotkey_edit.setKeySequence(QKeySequence("Ctrl+Alt+V"))
+        self._on_voice_hotkey_changed()
+
+    def _on_voice_lang_changed(self):
+        self.settings.voice_language = self._voice_lang_combo.currentData() or "ru-RU"
+
+    def _on_ollama_preset(self):
+        self.settings.ai_base_url = "http://localhost:11434/v1"
+        self._ai_url_edit.setText(self.settings.ai_base_url)
+        if not self.settings.ai_model:
+            self._ai_model_edit.setFocus()
+        self._status.setText("Ollama: впишите имя модели (например llama3.1) и включите ассистента")
+        logging.info("Применен пресет Ollama для AI-ассистента")
+
     def _on_ai_toggled(self, checked):
         self.settings.ai_enabled = checked
         self._refresh_ai_dependent_ui()
@@ -1972,6 +2101,10 @@ class MainWindow(QMainWindow):
         self._ai_url_edit.setText(self.settings.ai_base_url)
         self._ai_model_edit.setText(self.settings.ai_model)
         self._ai_key_edit.setPlaceholderText("Ключ сохранён в Credential Manager" if has_secret("ai_api_key") else "Вставьте API-ключ")
+        self._voice_hotkey_edit.setKeySequence(QKeySequence(self.settings.voice_hotkey))
+        lang_idx = self._voice_lang_combo.findData(self.settings.voice_language)
+        if lang_idx >= 0:
+            self._voice_lang_combo.setCurrentIndex(lang_idx)
         self._autostart_check.setChecked(autostart_mod.is_autostart_enabled())
         self._updates_check.setChecked(self.settings.check_updates)
         self._dev_mode_check.setChecked(self.settings.developer_mode)
@@ -2136,6 +2269,10 @@ class MainWindow(QMainWindow):
                 lbl_aliases.setStyleSheet("color: #888; font-size: 12px;")
                 lbl_aliases.setWordWrap(True)
                 left.addWidget(lbl_aliases)
+            if cmd.source == "plugin":
+                lbl_plugin = QLabel("плагин · data/plugins/")
+                lbl_plugin.setStyleSheet("color: #7a8ba8; font-size: 11px;")
+                left.addWidget(lbl_plugin)
             left.addStretch()
             layout.addLayout(left)
 
@@ -2143,6 +2280,11 @@ class MainWindow(QMainWindow):
 
             right = QVBoxLayout()
             right.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+            uses = self.stats_manager.count(cmd.trigger)
+            if uses:
+                lbl_uses = QLabel(f"запусков: {uses}")
+                lbl_uses.setStyleSheet("color: #6d8a6d; font-size: 11px;")
+                right.addWidget(lbl_uses, 0, Qt.AlignmentFlag.AlignRight)
             for act in cmd.actions:
                 act_type = act.get("type")
                 val = str(act.get("value", ""))
@@ -2170,6 +2312,12 @@ class MainWindow(QMainWindow):
         trigger = cmd.trigger
 
         menu = QMenu(self)
+        if cmd.source == "plugin":
+            info_action = menu.addAction(f"Плагиновая команда ({trigger})")
+            info_action.setEnabled(False)
+            menu.exec(self._commands_list.mapToGlobal(pos))
+            return
+
         edit_action = menu.addAction("Изменить")
 
         if trigger in self.settings.quick_commands:
@@ -2511,17 +2659,57 @@ class NoteDialog(QDialog):
         layout.addWidget(self._body, 1)
 
         buttons = QHBoxLayout()
+        if note and note.history:
+            history_btn = QPushButton(f"История ({len(note.history)})")
+            history_btn.setObjectName("secondaryButton")
+            history_btn.clicked.connect(self._show_history)
+            buttons.addWidget(history_btn)
+        buttons.addStretch()
         ok = QPushButton("Сохранить")
         ok.setObjectName("primaryButton")
         ok.clicked.connect(self._on_ok)
         cancel = QPushButton("Отмена")
         cancel.clicked.connect(self.reject)
-        buttons.addStretch()
         buttons.addWidget(ok)
         buttons.addWidget(cancel)
         layout.addLayout(buttons)
 
         self._note = note
+
+    def _show_history(self):
+        if not self._note or not self._note.history:
+            return
+        dlg = QDialog(self)
+        dlg.setWindowTitle("История заметки")
+        dlg.setMinimumSize(460, 380)
+        v = QVBoxLayout(dlg)
+        lst = QListWidget()
+        for version in self._note.history:
+            title = version.get("title", "")
+            preview = (version.get("body", "") or "").replace("\n", " ")[:60]
+            lst.addItem(f"{version.get('saved', '')} · {title}" + (f" · {preview}" if preview else ""))
+        v.addWidget(lst, 1)
+        row = QHBoxLayout()
+        row.addStretch()
+        restore_btn = QPushButton("Восстановить")
+        restore_btn.setObjectName("primaryButton")
+        close_btn = QPushButton("Закрыть")
+        row.addWidget(restore_btn)
+        row.addWidget(close_btn)
+        v.addLayout(row)
+
+        def restore():
+            idx = lst.currentRow()
+            if idx < 0:
+                return
+            version = self._note.history[idx]
+            self._title.setText(version.get("title", ""))
+            self._body.setPlainText(version.get("body", ""))
+            dlg.accept()
+
+        restore_btn.clicked.connect(restore)
+        close_btn.clicked.connect(dlg.reject)
+        dlg.exec()
 
     def _on_ok(self):
         if not self._title.text().strip():
@@ -2535,5 +2723,5 @@ class NoteDialog(QDialog):
         if not title:
             return None
         if self._note:
-            return Note(title, body, self._note.pinned, self._note.created, self._note.id)
+            return Note(title, body, self._note.pinned, self._note.created, self._note.id, self._note.history)
         return Note(title, body)

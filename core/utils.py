@@ -13,7 +13,24 @@ APP_VERSION = "1.1.0"
 def get_app_dir():
     if getattr(sys, 'frozen', False):
         return os.path.dirname(sys.executable)
-    return os.path.dirname(os.path.abspath(__file__))
+    return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+def get_asset_dir():
+    candidates = []
+    if getattr(sys, 'frozen', False):
+        exe_dir = os.path.dirname(sys.executable)
+        candidates.append(os.path.join(exe_dir, "assets"))
+        meipass = getattr(sys, "_MEIPASS", None)
+        if meipass:
+            candidates.append(os.path.join(meipass, "assets"))
+            candidates.append(meipass)
+    base = os.path.dirname(os.path.abspath(__file__))
+    candidates.append(os.path.join(os.path.dirname(base), "assets"))
+    for c in candidates:
+        if os.path.isdir(c):
+            return c
+    return candidates[-1]
 
 
 def open_path(path: str) -> bool:

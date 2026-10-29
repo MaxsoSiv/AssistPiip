@@ -164,6 +164,16 @@ class ChatView(QWidget):
         self._stream_item = None
         self._stream_body = None
 
+    def render_last_as_html(self, html_text: str):
+        if not self._rows:
+            return
+        item, body = self._rows[-1]
+        if not shiboken6.isValid(body):
+            return
+        body.setTextFormat(Qt.TextFormat.RichText)
+        body.setText(html_text)
+        self._relayout_single(item, body)
+
     def _scroll_if_at_bottom(self, force=False):
         sb = self._list.verticalScrollBar()
         at_bottom = sb.value() >= sb.maximum() - 24

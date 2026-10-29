@@ -7,12 +7,16 @@ from PySide6.QtCore import QObject, Signal
 
 
 class Note:
-    def __init__(self, title: str, body: str, pinned: bool = False, created: str = None, note_id: str = None):
+    MAX_HISTORY = 10
+
+    def __init__(self, title: str, body: str, pinned: bool = False, created: str = None,
+                 note_id: str = None, history: list = None):
         self.id = note_id or uuid.uuid4().hex
         self.title = title
         self.body = body
         self.pinned = pinned
         self.created = created or datetime.now().isoformat(timespec="seconds")
+        self.history = history or []
 
     def to_dict(self) -> dict:
         return {
@@ -21,17 +25,27 @@ class Note:
             "body": self.body,
             "pinned": self.pinned,
             "created": self.created,
+            "history": self.history,
         }
 
     @classmethod
     def from_dict(cls, data: dict) -> "Note":
+        history = data.get("history", [])
         return cls(
             data["title"],
             data["body"],
             data.get("pinned", False),
             data.get("created"),
             data.get("id"),
+            history if isinstance(history, list) else [],
         )
+
+    def snapshot(self) -> dict:
+        return {
+            "title": self.title,
+            "body": self.body,
+            "saved": datetime.now().isoformat(timespec="seconds"),
+        }
 
 
 class NotesManager(QObject):
@@ -84,6 +98,9 @@ class NotesManager(QObject):
     def update_note(self, note: Note, updated: Note):
         idx = self._find_index(note.id)
         if idx != -1:
+            history = list(updated.history)
+            history.insert(0, note.snapshot())
+            updated.history = history[: Note.MAX_HISTORY]
             self._notes[idx] = updated
             self._save()
         else:

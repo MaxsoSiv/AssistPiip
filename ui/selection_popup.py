@@ -5,8 +5,8 @@ from PySide6.QtCore import QObject, Qt, Signal
 from PySide6.QtGui import QGuiApplication, QCursor
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QFrame
 
-from llm_provider import LLMClient, LLMError
-from translator import translate_request
+from core.llm_provider import LLMClient, LLMError
+from ui.translator import translate_request
 
 
 class _PopupWorker(QObject):

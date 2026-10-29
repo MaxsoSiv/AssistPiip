@@ -5,7 +5,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QIcon
 
-from utils import APP_VERSION
+from core.utils import APP_VERSION
 
 PRIVACY_TEXT = """
 <h3>Политика конфиденциальности AssistPiip</h3>

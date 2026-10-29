@@ -165,3 +165,19 @@ class SettingsManager(QObject):
     @selection_hotkey.setter
     def selection_hotkey(self, value: str):
         self.set("selection_hotkey", value)
+
+    @property
+    def voice_hotkey(self) -> str:
+        return self.get("voice_hotkey", "Ctrl+Alt+V")
+
+    @voice_hotkey.setter
+    def voice_hotkey(self, value: str):
+        self.set("voice_hotkey", value)
+
+    @property
+    def voice_language(self) -> str:
+        return self.get("voice_language", "ru-RU")
+
+    @voice_language.setter
+    def voice_language(self, value: str):
+        self.set("voice_language", value)

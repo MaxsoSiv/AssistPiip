@@ -672,6 +672,31 @@ THEME_ACCENTS = {
 }
 
 
+SHARED_QSS = """
+QScrollBar:vertical { background: transparent; width: 10px; margin: 2px; }
+QScrollBar::handle:vertical { background: rgba(128, 138, 160, 0.35); border-radius: 4px; min-height: 30px; }
+QScrollBar::handle:vertical:hover { background: rgba(128, 138, 160, 0.55); }
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }
+QScrollBar:horizontal { background: transparent; height: 10px; margin: 2px; }
+QScrollBar::handle:horizontal { background: rgba(128, 138, 160, 0.35); border-radius: 4px; min-width: 30px; }
+QScrollBar::handle:horizontal:hover { background: rgba(128, 138, 160, 0.55); }
+QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal { width: 0; }
+QScrollBar::add-page, QScrollBar::sub-page { background: transparent; }
+QToolTip { background: @ACCENT@; color: #ffffff; border: none; padding: 5px 9px; border-radius: 6px; font-size: 12px; }
+QFrame#titleBar { border-bottom: 1px solid rgba(128, 138, 160, 0.22); }
+QPushButton#navButton { border-left: 3px solid transparent; }
+QPushButton#navButton:checked { border-left: 3px solid @ACCENT@; }
+QLineEdit:focus, QTextEdit:focus, QComboBox:focus { border: 1px solid @ACCENT@; }
+QLabel#sidebarBrandMark { background: @ACCENT@; color: #ffffff; border-radius: 8px; font-weight: 800; font-size: 14px; }
+QLabel#sidebarBrandName { font-weight: 700; font-size: 14px; }
+"""
+
+THEMES = {
+    name: qss + SHARED_QSS.replace("@ACCENT@", THEME_ACCENTS.get(name, THEME_ACCENTS["dark"])[0])
+    for name, qss in THEMES.items()
+}
+
+
 def _mix_hex(hex1, hex2, t):
     a = [int(hex1[i:i + 2], 16) for i in (1, 3, 5)]
     b = [int(hex2[i:i + 2], 16) for i in (1, 3, 5)]

@@ -61,8 +61,10 @@ class LLMClient:
         self.max_tokens = max_tokens
 
     def chat(self, messages: list[dict], on_delta=None, cancel=None) -> dict:
-        if not self.base_url or not self.api_key or not self.model:
+        if not self.base_url or not self.model:
             raise LLMError("config", "AI-ассистент настроен не полностью")
+        if not self.api_key:
+            raise LLMError("config", "Не задан API-ключ")
 
         payload = {
             "model": self.model,

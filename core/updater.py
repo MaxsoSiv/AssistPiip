@@ -13,6 +13,21 @@ from PySide6.QtCore import QObject, Signal
 
 RELEASES_URL = "https://maxsosiv.github.io/AssistPiip/releases.json"
 SITE_URL = "https://maxsosiv.github.io/AssistPiip/"
+ALLOWED_DOWNLOAD_HOSTS = {
+    "github.com",
+    "objects.githubusercontent.com",
+    "release-assets.githubusercontent.com",
+    "maxsosiv.github.io",
+}
+
+
+def _validate_download_url(url: str):
+    from urllib.parse import urlparse
+    parsed = urlparse(url)
+    if parsed.scheme != "https":
+        raise ValueError(f"Недопустимая схема загрузки: {parsed.scheme or 'нет'}")
+    if parsed.hostname not in ALLOWED_DOWNLOAD_HOSTS:
+        raise ValueError(f"Загрузка обновлений разрешена только с {', '.join(sorted(ALLOWED_DOWNLOAD_HOSTS))}")
 
 
 def parse_version(version) -> tuple:
@@ -44,6 +59,7 @@ def fetch_latest() -> dict | None:
 
 
 def download(url: str, dest_path: str) -> str:
+    _validate_download_url(url)
     digest = hashlib.sha256()
     resp = requests.get(url, stream=True, timeout=60)
     resp.raise_for_status()

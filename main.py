@@ -5,11 +5,11 @@ from PySide6.QtWidgets import QApplication, QSystemTrayIcon, QMenu
 from PySide6.QtGui import QIcon, QAction
 from PySide6.QtCore import QTimer, QPropertyAnimation, QEasingCurve, QAbstractAnimation
 
-from logger_manager import setup_logging
-from settings_manager import SettingsManager
-from ui_main import MainWindow
-from splash_screen import SplashScreen
-from utils import get_app_dir
+from core.logger_manager import setup_logging
+from core.settings_manager import SettingsManager
+from core.utils import get_app_dir, get_asset_dir
+from ui.ui_main import MainWindow
+from ui.splash_screen import SplashScreen
 
 
 def main():
@@ -25,8 +25,8 @@ def main():
     sys.excepthook = exception_hook
     logger.info("Запуск AssistPiip")
 
-    base_dir = get_app_dir()
-    icon_path = os.path.join(base_dir, "icon.ico")
+    asset_dir = get_asset_dir()
+    icon_path = os.path.join(asset_dir, "icon.ico")
     if os.path.exists(icon_path):
         app.setWindowIcon(QIcon(icon_path))
 
