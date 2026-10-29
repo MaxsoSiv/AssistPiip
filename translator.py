@@ -2,6 +2,7 @@ import threading
 from urllib.parse import quote
 
 import requests
+import shiboken6
 from PySide6.QtCore import Qt, QObject, Signal
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtWidgets import (
@@ -49,13 +50,15 @@ class TranslationWorker(QObject):
             result = translate_request(text, source, target)
         except Exception as e:
             result = {"error": str(e)}
-        self.finished.emit(result)
+        if shiboken6.isValid(self):
+            self.finished.emit(result)
 
 
 class TranslatorPage(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self._worker = None
+        self._last_detected = ""
         self._setup_ui()
 
     def _setup_ui(self):
@@ -135,11 +138,21 @@ class TranslatorPage(QWidget):
     def _swap_languages(self):
         source_idx = self._source_combo.currentIndex()
         if source_idx == 0:
-            self._source_combo.setCurrentIndex(self._target_combo.currentIndex() + 1)
+            tgt_code = self._target_combo.currentData()
+            tgt_as_src = self._find_source_index(tgt_code) if tgt_code else 0
+            detected_idx = self._find_lang_index(self._last_detected) if self._last_detected else -1
+            if tgt_as_src and detected_idx > 0:
+                self._source_combo.setCurrentIndex(tgt_as_src)
+                self._target_combo.setCurrentIndex(detected_idx)
+                self._last_detected = ""
         else:
-            target_idx = self._find_lang_index(self._source_combo.itemData(source_idx))
-            self._target_combo.setCurrentIndex(target_idx)
-            self._source_combo.setCurrentIndex(0)
+            src_code = self._source_combo.itemData(source_idx)
+            tgt_code = self._target_combo.currentData()
+            tgt_as_src = self._find_source_index(tgt_code) if tgt_code else 0
+            src_as_tgt = self._find_lang_index(src_code) if src_code else -1
+            if tgt_as_src and src_as_tgt > 0:
+                self._source_combo.setCurrentIndex(tgt_as_src)
+                self._target_combo.setCurrentIndex(src_as_tgt)
         text = self._source_edit.toPlainText()
         result = self._result_edit.toPlainText()
         if result:
@@ -149,6 +162,12 @@ class TranslatorPage(QWidget):
     def _find_lang_index(self, code: str) -> int:
         for i in range(self._target_combo.count()):
             if self._target_combo.itemData(i) == code:
+                return i
+        return -1
+
+    def _find_source_index(self, code: str) -> int:
+        for i in range(1, self._source_combo.count()):
+            if self._source_combo.itemData(i) == code:
                 return i
         return 0
 
@@ -179,6 +198,8 @@ class TranslatorPage(QWidget):
 
         self._result_edit.setPlainText(result["text"])
         lang_code = result.get("lang", "")
+        if lang_code and lang_code != "auto":
+            self._last_detected = lang_code
         lang_name = self._lang_name(lang_code)
         self._lang_label.setText(f"Перевод{f' · {lang_name}' if lang_name else ''}")
 

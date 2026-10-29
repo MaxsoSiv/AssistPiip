@@ -162,7 +162,7 @@ class CalculatorPage(QWidget):
             ("7", 2, 0), ("8", 2, 1), ("9", 2, 2), ("*", 2, 3),
             ("4", 3, 0), ("5", 3, 1), ("6", 3, 2), ("-", 3, 3),
             ("1", 4, 0), ("2", 4, 1), ("3", 4, 2), ("+", 4, 3),
-            ("0", 5, 0), (".", 5, 1), ("%", 5, 2), ("=", 5, 3),
+            ("0", 5, 0), (".", 5, 1), ("mod", 5, 2), ("=", 5, 3),
         ]
 
         for text, r, c in buttons:
@@ -199,7 +199,7 @@ class CalculatorPage(QWidget):
             ("pi", 5, 0), ("e", 5, 1), ("x^y", 5, 2), ("n!", 5, 3), ("=", 5, 4),
             ("7", 6, 0), ("8", 6, 1), ("9", 6, 2), ("(", 6, 3), (")", 6, 4),
             ("4", 7, 0), ("5", 7, 1), ("6", 7, 2), ("0", 7, 3), (".", 7, 4),
-            ("1", 8, 0), ("2", 8, 1), ("3", 8, 2), ("%", 8, 3), (" ", 8, 4),
+            ("1", 8, 0), ("2", 8, 1), ("3", 8, 2), ("mod", 8, 3), (" ", 8, 4),
         ]
 
         for text, r, c in buttons:
@@ -328,12 +328,14 @@ class CalculatorPage(QWidget):
     def _convert_from_decimal(self, val, base):
         if base == 10:
             return str(val)
+        sign = "-" if val < 0 else ""
+        magnitude = abs(int(val))
         if base == 16:
-            return hex(int(val))[2:].upper()
+            return sign + hex(magnitude)[2:].upper()
         if base == 8:
-            return oct(int(val))[2:]
+            return sign + oct(magnitude)[2:]
         if base == 2:
-            return bin(int(val))[2:]
+            return sign + bin(magnitude)[2:]
         return str(val)
 
     def _calculate(self):

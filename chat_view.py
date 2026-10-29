@@ -1,3 +1,4 @@
+import shiboken6
 from PySide6.QtCore import Qt, QTimer, QSize
 from PySide6.QtGui import QPixmap, QPainter, QLinearGradient, QColor, QFont, QTextDocument
 from PySide6.QtWidgets import (
@@ -55,8 +56,11 @@ class ChatView(QWidget):
     def __init__(self, settings, parent=None):
         super().__init__(parent)
         self._settings = settings
+        self._theme = settings.theme if settings else "dark"
         self._accent_hex = ""
         self._rows = []
+        self._stream_item = None
+        self._stream_body = None
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -76,6 +80,8 @@ class ChatView(QWidget):
     def clear(self):
         self._list.clear()
         self._rows = []
+        self._stream_item = None
+        self._stream_body = None
 
     def add_message(self, role: str, text: str, timestamp: str = ""):
         is_assistant = (role == "assistant")
@@ -138,7 +144,52 @@ class ChatView(QWidget):
         self._list.setItemWidget(item, row)
         self._rows.append((item, body))
         self._relayout_rows()
-        QTimer.singleShot(0, self._list.scrollToBottom)
+        self._scroll_if_at_bottom(force=True)
+
+    def stream_reset(self, text: str = ""):
+        self._stream_item = None
+        self._stream_body = None
+        self.add_message("assistant", text)
+        if self._rows:
+            self._stream_item, self._stream_body = self._rows[-1]
+
+    def stream_append(self, text: str):
+        if self._stream_body is None or not shiboken6.isValid(self._stream_body):
+            return
+        self._stream_body.setText(text)
+        self._relayout_single(self._stream_item, self._stream_body)
+        self._scroll_if_at_bottom(force=True)
+
+    def stream_end(self):
+        self._stream_item = None
+        self._stream_body = None
+
+    def _scroll_if_at_bottom(self, force=False):
+        sb = self._list.verticalScrollBar()
+        at_bottom = sb.value() >= sb.maximum() - 24
+        if force or at_bottom:
+            QTimer.singleShot(0, self._list.scrollToBottom)
+
+    def _relayout_single(self, item, body):
+        row = self._list.itemWidget(item)
+        if row is None:
+            return
+        width = self._list.viewport().width() - 4
+        if width <= 80:
+            return
+        body_width = min(BODY_MAX_WIDTH, width - AVATAR_SIZE - 16 - BUBBLE_H_MARGINS - BORDERS) - 2
+        if body_width < 60:
+            return
+        row.setFixedWidth(width)
+        doc = QTextDocument()
+        doc.setDefaultFont(body.font())
+        if body.textFormat() == Qt.TextFormat.PlainText:
+            doc.setPlainText(body.text())
+        else:
+            doc.setHtml(body.text())
+        doc.setTextWidth(body_width)
+        total = ROW_MARGIN + BUBBLE_V_MARGINS + BORDERS + HEADER_HEIGHT + SPACING + int(doc.size().height()) + SAFETY
+        item.setSizeHint(QSize(width, max(total, MIN_ROW_HEIGHT)))
 
     def _relayout_rows(self):
         width = self._list.viewport().width() - 4

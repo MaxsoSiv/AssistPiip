@@ -89,7 +89,11 @@ class ToastCard(QFrame):
             foot.addWidget(snooze_btn)
         root.addLayout(foot)
 
+        body_min = body.heightForWidth(360 - 16 - 8)
+        if body_min > 0:
+            body.setMinimumHeight(body_min)
         self.adjustSize()
+        self.setFixedHeight(self.sizeHint().height())
 
         self._auto_timer = QTimer(self)
         self._auto_timer.setSingleShot(True)

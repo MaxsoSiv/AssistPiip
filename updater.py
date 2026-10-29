@@ -1,6 +1,7 @@
 import os
 import sys
 import json
+import hashlib
 import logging
 import zipfile
 import tempfile
@@ -42,12 +43,15 @@ def fetch_latest() -> dict | None:
     return max(releases, key=lambda r: parse_version(r.get("version", "0")))
 
 
-def download(url: str, dest_path: str):
+def download(url: str, dest_path: str) -> str:
+    digest = hashlib.sha256()
     resp = requests.get(url, stream=True, timeout=60)
     resp.raise_for_status()
     with open(dest_path, "wb") as f:
         for chunk in resp.iter_content(chunk_size=64 * 1024):
             f.write(chunk)
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def _write_update_script(path, staging, app_dir, pid):
@@ -64,14 +68,36 @@ def _write_update_script(path, staging, app_dir, pid):
         f'start "" "{exe_path}"\r\n'
         "del \"%~f0\"\r\n"
     )
-    with open(path, "w", encoding="cp866") as f:
-        f.write(script)
+    for encoding in ("cp866", "mbcs"):
+        try:
+            with open(path, "w", encoding=encoding) as f:
+                f.write(script)
+            return
+        except UnicodeEncodeError:
+            continue
+    raise UnicodeEncodeError("cp866/mbcs", script, 0, 1, "path is not representable in OEM/ANSI codepage")
+
+
+def _safe_extractall(zf, dest: str):
+    dest_real = os.path.realpath(dest)
+    for member in zf.infolist():
+        name = member.filename.replace("\\", "/")
+        if os.path.isabs(name) or ".." in name.split("/"):
+            raise zipfile.BadZipFile(f"Небезопасный путь в архиве: {member.filename}")
+        target = os.path.realpath(os.path.join(dest, member.filename))
+        if target != dest_real and not target.startswith(dest_real + os.sep):
+            raise zipfile.BadZipFile(f"Путь вне папки распаковки: {member.filename}")
+    zf.extractall(dest)
 
 
 def apply_update(zip_path: str, app_dir: str, pid: int) -> bool:
     staging = tempfile.mkdtemp(prefix="assistpiip_update_")
-    with zipfile.ZipFile(zip_path) as zf:
-        zf.extractall(staging)
+    try:
+        with zipfile.ZipFile(zip_path) as zf:
+            _safe_extractall(zf, staging)
+    except (zipfile.BadZipFile, OSError) as e:
+        logging.error(f"Не удалось распаковать архив обновления: {e}")
+        return False
 
     nested = os.path.join(staging, "AssistPiip")
     if os.path.isdir(nested):
@@ -82,7 +108,11 @@ def apply_update(zip_path: str, app_dir: str, pid: int) -> bool:
         return False
 
     bat_path = os.path.join(tempfile.gettempdir(), f"assistpiip_update_{pid}.bat")
-    _write_update_script(bat_path, staging, app_dir, pid)
+    try:
+        _write_update_script(bat_path, staging, app_dir, pid)
+    except UnicodeEncodeError:
+        logging.error("Путь установки не представим в системной кодировке, автообновление невозможно")
+        return False
 
     subprocess.Popen(
         ["cmd", "/c", bat_path],
@@ -110,14 +140,26 @@ class UpdateDownloader(QObject):
     finished = Signal(str)
     failed = Signal(str)
 
+    def __init__(self, expected_sha256: str = "", parent=None):
+        super().__init__(parent)
+        self._expected = (expected_sha256 or "").strip().lower()
+
     def start(self, url: str):
         threading.Thread(target=self._run, args=(url,), daemon=True).start()
 
     def _run(self, url):
         path = os.path.join(tempfile.gettempdir(), "assistpiip_update.zip")
         try:
-            download(url, path)
+            digest = download(url, path)
         except Exception as e:
             self.failed.emit(str(e))
+            return
+        if self._expected and digest.lower() != self._expected:
+            try:
+                os.remove(path)
+            except OSError:
+                pass
+            logging.error(f"SHA-256 архива обновления не совпал: {digest}")
+            self.failed.emit("Контрольная сумма архива не совпала. Скачайте обновление вручную с сайта.")
             return
         self.finished.emit(path)

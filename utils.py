@@ -1,12 +1,13 @@
 import os
 import sys
+import shutil
 import subprocess
 import webbrowser
 import logging
 import win32gui
 import win32con
 
-APP_VERSION = "1.0.2"
+APP_VERSION = "1.1.0"
 
 
 def get_app_dir():
@@ -18,11 +19,25 @@ def get_app_dir():
 def open_path(path: str) -> bool:
     if not path:
         return False
-        
+
     try:
         if os.path.exists(path):
             os.startfile(path)
             return True
+    except OSError as e:
+        logging.error(f"Ошибка ОС при открытии {path}: {e}")
+        return False
+
+    resolved = shutil.which(path)
+    if resolved:
+        try:
+            subprocess.Popen([resolved])
+            return True
+        except OSError as e:
+            logging.error(f"Ошибка ОС при запуске {resolved}: {e}")
+            return False
+
+    try:
         subprocess.Popen(path, shell=True)
         return True
     except FileNotFoundError:

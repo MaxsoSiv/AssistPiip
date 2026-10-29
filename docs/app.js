@@ -5,7 +5,7 @@
     {
       version: "1.0.1",
       date: "2026-10-24",
-      file: "https://github.com/MaxsoSiv/AssistPiip/releases/download/Release/AssistPiip-1.0.1.zip",
+      file: "https://github.com/MaxsoSiv/AssistPiip/releases",
       size: 0,
       notes:
         "Обновление 1.0.1:\n" +
@@ -22,7 +22,7 @@
       version: "1.0.0",
       date: "2026-10-22",
       file: "https://github.com/MaxsoSiv/AssistPiip/releases/download/Release/AssistPiip-Beta-1.0.0.zip",
-      size: 0,
+      size: 47908596,
       notes:
         "Первый бета-релиз:\n" +
         "• Кастомные команды с алиасами и быстрым доступом\n" +

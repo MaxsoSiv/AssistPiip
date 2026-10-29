@@ -34,7 +34,6 @@ class FloatingCircle(QWidget):
         self._orbit_angle = 0.0
         self._pulse_timer = QTimer(self)
         self._pulse_timer.timeout.connect(self._update_pulse)
-        self._pulse_timer.start(33)
 
     def _show_menu(self, pos):
         menu = QMenu(self)
@@ -45,11 +44,15 @@ class FloatingCircle(QWidget):
         exit_action.triggered.connect(self.exit_requested.emit)
         menu.addAction(exit_action)
         menu.exec(self.mapToGlobal(pos))
+        menu.deleteLater()
 
     def clamp_to_screen(self):
-        screen = QGuiApplication.primaryScreen().availableGeometry()
-        x = min(max(self.x(), screen.left()), screen.right() - self.width())
-        y = min(max(self.y(), screen.top()), screen.bottom() - self.height())
+        screen = QGuiApplication.screenAt(self.frameGeometry().center())
+        if screen is None:
+            screen = QGuiApplication.primaryScreen()
+        geo = screen.availableGeometry()
+        x = min(max(self.x(), geo.left()), geo.right() - self.width() + 1)
+        y = min(max(self.y(), geo.top()), geo.bottom() - self.height() + 1)
         self.move(x, y)
 
     def set_opacity(self, value: float):
@@ -76,6 +79,15 @@ class FloatingCircle(QWidget):
     def leaveEvent(self, event):
         self._hover = False
         self.update()
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        if not self._pulse_timer.isActive():
+            self._pulse_timer.start(33)
+
+    def hideEvent(self, event):
+        super().hideEvent(event)
+        self._pulse_timer.stop()
 
     def _update_pulse(self):
         self._pulse_val += 0.04 * self._pulse_dir

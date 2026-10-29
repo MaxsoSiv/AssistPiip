@@ -1,10 +1,12 @@
 import os
 import sys
 import json
+import html
 import logging
 import shiboken6
 import random
 import subprocess
+import threading
 import re
 import requests
 from datetime import datetime, timedelta
@@ -15,9 +17,10 @@ from PySide6.QtWidgets import (
     QPushButton, QLabel, QStackedWidget, QListWidget, QListWidgetItem,
     QTextEdit, QDialog, QFormLayout, QComboBox, QCheckBox, QSlider,
     QFileDialog, QMessageBox, QMenu, QFrame, QGridLayout, QScrollArea,
-    QSizePolicy, QSizeGrip, QKeySequenceEdit, QProgressDialog, QColorDialog
+    QSizePolicy, QSizeGrip, QKeySequenceEdit, QProgressDialog, QColorDialog,
+    QInputDialog
 )
-from PySide6.QtCore import Qt, QBuffer, QIODevice, QSize, QTimer
+from PySide6.QtCore import Qt, QBuffer, QIODevice, QObject, QSize, QTimer, Signal
 from PySide6.QtGui import QIcon, QPixmapCache, QPixmap, QPainter, QLinearGradient, QColor, QFont, QCursor, QKeySequence
 
 from settings_manager import SettingsManager
@@ -31,7 +34,8 @@ from fuzzy_matcher import FuzzyMatcher
 from floating_widget import FloatingCircle
 from utils import open_path, open_url, set_always_on_top, get_app_dir, APP_VERSION
 import updater
-from hotkey_manager import HotkeyManager, HOTKEY_ID_MAIN, HOTKEY_ID_SPOTLIGHT
+import backup_manager
+from hotkey_manager import HotkeyManager, HOTKEY_ID_MAIN, HOTKEY_ID_SPOTLIGHT, HOTKEY_ID_SELECTION
 from calculator import CalculatorPage, SafeEvaluator
 from monitor_page import MonitorPage
 from translator import TranslatorPage
@@ -40,6 +44,10 @@ from about_dialog import AboutDialog
 from theme import THEMES, apply_accent
 from chat_view import ChatView
 from spotlight import Spotlight
+from secrets_store import save_secret, delete_secret, has_secret, load_secret
+from llm_provider import LLMClient, LLMError, strip_html
+from selection_capture import capture_selection
+from selection_popup import SelectionPopup
 import autostart as autostart_mod
 
 
@@ -52,6 +60,68 @@ PAGE_CALCULATOR = 5
 PAGE_MONITOR = 6
 PAGE_TRANSLATE = 7
 PAGE_COUNT = 8
+
+
+class _CommandWorker(QObject):
+    finished = Signal(object)
+
+    def __init__(self, fn, parent=None):
+        super().__init__(parent)
+        self._fn = fn
+
+    def start(self):
+        threading.Thread(target=self._run, daemon=True).start()
+
+    def _run(self):
+        try:
+            result = {"ok": True, "data": self._fn()}
+        except Exception as e:
+            result = {"ok": False, "error": str(e)}
+        if shiboken6.isValid(self):
+            self.finished.emit(result)
+
+
+class _AIWorker(QObject):
+    delta = Signal(str)
+    finished = Signal(object)
+    failed = Signal(object)
+
+    def __init__(self, client: LLMClient, messages, parent=None):
+        super().__init__(parent)
+        self._client = client
+        self._messages = messages
+        self._cancel = threading.Event()
+
+    def cancel(self):
+        self._cancel.set()
+
+    def start(self):
+        threading.Thread(target=self._run, daemon=True).start()
+
+    def _run(self):
+        buffer = []
+        try:
+            result = self._client.chat(
+                self._messages,
+                on_delta=self._on_delta_wrapper(buffer),
+                cancel=self._cancel,
+            )
+        except LLMError as e:
+            if shiboken6.isValid(self):
+                self.failed.emit({"error": e, "partial": "".join(buffer)})
+            return
+        except Exception as e:
+            if shiboken6.isValid(self):
+                self.failed.emit({"error": LLMError("network", str(e)), "partial": "".join(buffer)})
+            return
+        if shiboken6.isValid(self):
+            self.finished.emit({"content": result["content"], "usage": result.get("usage")})
+
+    def _on_delta_wrapper(self, buffer):
+        def handle(chunk):
+            buffer.append(chunk)
+            self.delta.emit(chunk)
+        return handle
 
 
 class MainWindow(QMainWindow):
@@ -100,6 +170,8 @@ class MainWindow(QMainWindow):
         self._placeholders = {}
         self._heavy_pages = {PAGE_SETTINGS, PAGE_COMMANDS, PAGE_NOTES, PAGE_CLIPBOARD, PAGE_CALCULATOR, PAGE_MONITOR, PAGE_TRANSLATE}
 
+        backup_manager.run_backup(data_dir)
+
         self._build_ui()
         self._connect_signals()
         self._apply_theme()
@@ -114,6 +186,13 @@ class MainWindow(QMainWindow):
 
         self._update_checker = None
         self._update_downloader = None
+        self._net_worker = None
+        self._selection_worker = None
+        self._ai_worker = None
+        self._ai_buffer = ""
+        self._ai_flush_timer = QTimer(self)
+        self._ai_flush_timer.setInterval(90)
+        self._ai_flush_timer.timeout.connect(self._flush_ai_delta)
 
         self._hotkey = HotkeyManager(self)
         ok, err = self._hotkey.register(HOTKEY_ID_MAIN, self.settings.hotkey)
@@ -128,8 +207,18 @@ class MainWindow(QMainWindow):
         else:
             logging.warning(f"Быстрая команда {self.settings.spotlight_hotkey} не назначена: {err}")
 
-        self._spotlight = Spotlight()
+        ok, err = self._hotkey.register(HOTKEY_ID_SELECTION, self.settings.selection_hotkey)
+        if ok:
+            logging.info(f"Выделенный текст: {self.settings.selection_hotkey}")
+        else:
+            logging.warning(f"Выделенный текст {self.settings.selection_hotkey} не назначен: {err}")
+
+        self._spotlight = Spotlight(self.settings, self.command_manager, self.notes_manager, self.clipboard_manager)
         self._spotlight.submitted.connect(self._on_spotlight_submit)
+        self._spotlight.activated.connect(self._on_spotlight_activated)
+
+        self._selection_popup = SelectionPopup(self)
+        self._selection_popup.set_llm_client(self._make_llm_client())
 
         self._clock_timer = QTimer(self)
         self._clock_timer.setInterval(1000)
@@ -145,6 +234,9 @@ class MainWindow(QMainWindow):
             if msg.wParam == HOTKEY_ID_SPOTLIGHT:
                 self._toggle_spotlight()
                 return True, 0
+            if msg.wParam == HOTKEY_ID_SELECTION:
+                self._toggle_selection_popup()
+                return True, 0
         return super().nativeEvent(eventType, message)
 
     def _toggle_spotlight(self):
@@ -155,6 +247,174 @@ class MainWindow(QMainWindow):
 
     def _on_spotlight_submit(self, text):
         self.execute_command_text(text)
+
+    def _on_spotlight_activated(self, action):
+        kind = action.get("kind")
+        if kind == "command":
+            self.execute_command_text(action.get("payload", ""))
+        elif kind == "note":
+            note = action.get("payload")
+            if note is not None:
+                self._restore_from_circle()
+                self._on_nav(PAGE_NOTES)
+                dlg = NoteDialog(self, note)
+                if dlg.exec():
+                    updated = dlg.get_note()
+                    if updated:
+                        self.notes_manager.update_note(note, updated)
+        elif kind == "clipboard":
+            entry = action.get("payload")
+            if entry is not None:
+                self.clipboard_manager.copy_entry(entry)
+                self.toast_manager.show_toast("Буфер обмена", "Скопировано из истории")
+
+    def _toggle_selection_popup(self):
+        if self._selection_popup.isVisible():
+            self._selection_popup.close()
+            return
+        if self._selection_worker is not None:
+            return
+        self._selection_worker = _CommandWorker(capture_selection, self)
+        self._selection_worker.finished.connect(self._on_selection_captured)
+        self._selection_worker.start()
+
+    def _on_selection_captured(self, result):
+        self._selection_worker.deleteLater()
+        self._selection_worker = None
+        if not shiboken6.isValid(self):
+            return
+        if not result["ok"] or not result["data"]:
+            self.toast_manager.show_toast("Выделенный текст", "Не удалось захватить выделенный текст")
+            return
+        self._selection_popup.set_llm_client(self._make_llm_client())
+        self._selection_popup.open_with_text(result["data"])
+
+    def _make_llm_client(self) -> LLMClient | None:
+        if not self.settings.ai_enabled:
+            return None
+        key = load_secret("ai_api_key")
+        if not key:
+            return None
+        base_url = self.settings.ai_base_url.strip()
+        model = self.settings.ai_model.strip()
+        if not base_url or not model:
+            return None
+        return LLMClient(base_url, key, model)
+
+    def _ai_system_prompt(self) -> str:
+        return ("Ты Пип — локальный ассистент в приложении AssistPiip для Windows. "
+                "Отвечай кратко, по делу и на языке пользователя. "
+                "Не используй HTML и Markdown-разметку — обычный текст.")
+
+    def _start_ai_chat(self, text: str) -> bool:
+        client = self._make_llm_client()
+        if client is None:
+            return False
+        if self._ai_worker is not None:
+            self._log_chat("assistant", "Подожди, Пип ещё отвечает. Enter — прервать.")
+            return True
+
+        history = []
+        for m in self.chat_manager.all_messages()[-12:]:
+            content = strip_html(m.text)
+            if content and m.role in ("user", "assistant"):
+                history.append({"role": m.role, "content": content})
+        messages = [{"role": "system", "content": self._ai_system_prompt()}]
+        messages.extend(history)
+        messages.append({"role": "user", "content": text})
+
+        self._ai_worker = _AIWorker(client, messages, self)
+        self._ai_worker.delta.connect(self._on_ai_delta)
+        self._ai_worker.finished.connect(self._on_ai_finished)
+        self._ai_worker.failed.connect(self._on_ai_failed)
+        self._ai_buffer = ""
+        self._chat_view.stream_reset()
+        self._ai_flush_timer.start(90)
+        self._input.setPlaceholderText("Пип отвечает... Enter — прервать")
+        self._ai_worker.start()
+        logging.info(f"AI-запрос: {text[:80]}")
+        return True
+
+    def _flush_ai_delta(self):
+        if self._ai_buffer and self._ai_worker is not None:
+            self._chat_view.stream_append(self._ai_buffer)
+
+    def _on_ai_delta(self, chunk):
+        self._ai_buffer += chunk
+
+    def _on_ai_finished(self, result):
+        self._ai_flush_timer.stop()
+        self._chat_view.stream_append(self._ai_buffer)
+        self._chat_view.stream_end()
+        content = result["content"].strip()
+        usage = result.get("usage")
+        if usage:
+            logging.info(f"AI usage: {usage}")
+        self.chat_manager.add_message("assistant", html.escape(content))
+        self._ai_worker.deleteLater()
+        self._ai_worker = None
+        self._ai_buffer = ""
+        self._input.setPlaceholderText(self._input_placeholder_text())
+        self._status.setText("Пип ответил")
+
+    def _on_ai_failed(self, payload):
+        self._ai_flush_timer.stop()
+        error = payload["error"]
+        partial = payload.get("partial", "")
+        self._chat_view.stream_end()
+        if isinstance(error, LLMError):
+            message = error.user_message
+        else:
+            message = str(error)
+        shown = partial.strip()
+        if shown:
+            shown += "\n\n" + message
+        else:
+            shown = message
+        self._chat_view.add_message("assistant", shown)
+        self.chat_manager.add_message("assistant", html.escape(shown))
+        logging.warning(f"AI-ошибка: {error}")
+        self._ai_worker.deleteLater()
+        self._ai_worker = None
+        self._ai_buffer = ""
+        self._input.setPlaceholderText(self._input_placeholder_text())
+
+    def _input_placeholder_text(self) -> str:
+        if self.settings.ai_enabled and has_secret("ai_api_key"):
+            return "Команда или вопрос Пипу · = 2+2 · заметка · напомни ..."
+        return "Введите команду · = 2+2 · заметка · напомни ..."
+
+    def tray_new_note(self):
+        dlg = NoteDialog(self)
+        if dlg.exec():
+            note = dlg.get_note()
+            if note:
+                self.notes_manager.add_note(note)
+                self.toast_manager.show_toast("Заметка", f"Сохранено: {note.title}")
+
+    def tray_reminder(self):
+        text, ok = QInputDialog.getText(
+            self, "Напоминание",
+            "Что и когда: «через 20 минут перерыв» или «в 19:30 позвонить»",
+        )
+        if not ok:
+            return
+        text = text.strip()
+        if not text:
+            return
+        parsed = parse_when(text)
+        if parsed is None:
+            self.toast_manager.show_toast("Напоминание", "Не понял время. Пример: «через 20 минут перерыв»")
+            return
+        due, label = parsed
+        if not label:
+            label = "Напоминание"
+        self.reminder_manager.add(due, label, "reminder")
+        self.toast_manager.show_toast("Напоминание установлено", f"{label} — {due.strftime('%H:%M %d.%m')}")
+
+    def tray_clipboard_copy(self, entry):
+        self.clipboard_manager.copy_entry(entry)
+        self.toast_manager.show_toast("Буфер обмена", "Скопировано из истории")
 
     def _update_circle_countdown(self):
         items = self.reminder_manager.pending()
@@ -265,7 +525,6 @@ class MainWindow(QMainWindow):
         self._about_btn = QPushButton("?")
         self._about_btn.setObjectName("titleButton")
         self._about_btn.setFixedSize(26, 26)
-        self._about_btn.setStyleSheet("font-weight: bold; font-size: 15px; color: #aaa;")
         self._about_btn.setToolTip("О программе")
         self._about_btn.clicked.connect(self._show_about)
         layout.addWidget(self._about_btn)
@@ -386,7 +645,7 @@ class MainWindow(QMainWindow):
         input_row = QHBoxLayout()
         self._input = QLineEdit()
         self._input.setObjectName("commandInput")
-        self._input.setPlaceholderText("Введите команду · = 2+2 · заметка · напомни ...")
+        self._input.setPlaceholderText(self._input_placeholder_text())
         self._input.setFixedHeight(44)
         self._input.returnPressed.connect(self._execute_input)
         self._input.setToolTip("Enter — выполнить, стрелки вверх/вниз — история команд")
@@ -660,6 +919,57 @@ class MainWindow(QMainWindow):
         spot_hint = QLabel("Действие: открывает мини-строку у курсора — команда выполняется без открытия окна")
         spot_hint.setStyleSheet("color: #888; font-size: 11px;")
         form.addRow("", spot_hint)
+
+        sel_row = QHBoxLayout()
+        self._selection_hotkey_edit = QKeySequenceEdit(QKeySequence(self.settings.selection_hotkey))
+        self._selection_hotkey_edit.setToolTip("Например Ctrl+Alt+T")
+        self._selection_hotkey_edit.editingFinished.connect(self._on_selection_hotkey_changed)
+        sel_row.addWidget(self._selection_hotkey_edit)
+        sel_reset_btn = QPushButton("По умолчанию")
+        sel_reset_btn.setObjectName("secondaryButton")
+        sel_reset_btn.clicked.connect(self._reset_selection_hotkey)
+        sel_row.addWidget(sel_reset_btn)
+        form.addRow("Выделенный текст:", sel_row)
+
+        sel_hint = QLabel("Действие: захватывает выделенный в любой программе текст и предлагает перевод и AI-действия")
+        sel_hint.setStyleSheet("color: #888; font-size: 11px;")
+        form.addRow("", sel_hint)
+
+        self._ai_check = QCheckBox("AI-ассистент в чате (OpenAI-совместимый провайдер)")
+        self._ai_check.setChecked(self.settings.ai_enabled)
+        self._ai_check.toggled.connect(self._on_ai_toggled)
+        form.addRow("", self._ai_check)
+
+        self._ai_url_edit = QLineEdit(self.settings.ai_base_url)
+        self._ai_url_edit.setPlaceholderText("https://api.openai.com/v1")
+        self._ai_url_edit.editingFinished.connect(self._on_ai_url_changed)
+        form.addRow("Base URL:", self._ai_url_edit)
+
+        self._ai_model_edit = QLineEdit(self.settings.ai_model)
+        self._ai_model_edit.setPlaceholderText("имя модели, например gpt-4o-mini")
+        self._ai_model_edit.editingFinished.connect(self._on_ai_model_changed)
+        form.addRow("Модель:", self._ai_model_edit)
+
+        key_row = QHBoxLayout()
+        self._ai_key_edit = QLineEdit()
+        self._ai_key_edit.setEchoMode(QLineEdit.EchoMode.Password)
+        self._ai_key_edit.setPlaceholderText("Ключ сохранён в Credential Manager" if has_secret("ai_api_key") else "Вставьте API-ключ")
+        key_save_btn = QPushButton("Сохранить ключ")
+        key_save_btn.setObjectName("primaryButton")
+        key_save_btn.clicked.connect(self._on_ai_key_save)
+        key_delete_btn = QPushButton("Удалить")
+        key_delete_btn.setObjectName("secondaryButton")
+        key_delete_btn.clicked.connect(self._on_ai_key_delete)
+        key_row.addWidget(self._ai_key_edit, 1)
+        key_row.addWidget(key_save_btn)
+        key_row.addWidget(key_delete_btn)
+        form.addRow("API-ключ:", key_row)
+
+        ai_hint = QLabel("Запросы уходят на указанный сервер только когда вы пишете в чат. "
+                         "Ключ хранится в Windows Credential Manager и не попадает в логи и конфиги.")
+        ai_hint.setStyleSheet("color: #888; font-size: 11px;")
+        ai_hint.setWordWrap(True)
+        form.addRow("", ai_hint)
 
         self._updates_check = QCheckBox("Проверять обновления при запуске")
         self._updates_check.setChecked(self.settings.check_updates)
@@ -966,6 +1276,11 @@ class MainWindow(QMainWindow):
 
     def _execute_input(self):
         text = self._input.text().strip()
+        if self._ai_worker is not None:
+            self._input.clear()
+            self._ai_worker.cancel()
+            self._status.setText("Прерываю ответ Пипа...")
+            return
         self._input.clear()
         self.execute_command_text(text)
 
@@ -1006,12 +1321,15 @@ class MainWindow(QMainWindow):
         if best:
             found = self.command_manager.find_by_trigger(best)
             if found:
-                self._log_chat("assistant", f"Нечёткое совпадение: «{text}» → «{best}»")
+                self._log_chat("assistant", f"Нечёткое совпадение: «{html.escape(text)}» → «{html.escape(best)}»")
                 logging.info(f"Нечёткое совпадение: {text} -> {best}")
                 self.command_manager.execute_actions(found)
                 return
 
-        self._log_chat("assistant", f"Команда не распознана: «{text}»")
+        if self._start_ai_chat(text):
+            return
+
+        self._log_chat("assistant", f"Команда не распознана: «{html.escape(text)}»")
         logging.warning(f"Команда не распознана: {text}")
 
     def _run_chat_calculator(self, expr: str):
@@ -1022,7 +1340,7 @@ class MainWindow(QMainWindow):
             result = SafeEvaluator.evaluate(expr)
             if isinstance(result, float):
                 result = int(result) if result.is_integer() else round(result, 10)
-            self._log_chat("assistant", f"<b>{expr}</b> = <b>{result}</b>")
+            self._log_chat("assistant", f"<b>{html.escape(expr)}</b> = <b>{result}</b>")
             logging.info(f"Чат-калькулятор: {expr} = {result}")
         except ZeroDivisionError:
             self._log_chat("assistant", "Деление на ноль.")
@@ -1039,7 +1357,7 @@ class MainWindow(QMainWindow):
             self._log_chat("assistant", "Укажите, что выполнить. Пример: «через 30 минут открой браузер»")
             return
         self.reminder_manager.add(due, command, "delayed")
-        self._log_chat("assistant", f"Выполню «{command}» в {due.strftime('%H:%M %d.%m')}")
+        self._log_chat("assistant", f"Выполню «{html.escape(command)}» в {due.strftime('%H:%M %d.%m')}")
         logging.info(f"Отложенная команда: {command} на {due}")
 
     def _all_command_strings(self) -> list[str]:
@@ -1084,41 +1402,22 @@ class MainWindow(QMainWindow):
         logging.info(f"Выполнение встроенной команды: {key}")
 
         if key == "ip":
+            if self._net_worker is not None:
+                self._log_chat("assistant", "Подожди, выполняется предыдущая сетевая команда.")
+                return
             self._log_chat("assistant", "Получаю IP-адрес...")
-            try:
-                ip = requests.get("https://api.ipify.org", timeout=5).text
-                self._log_chat("assistant", f"Ваш внешний IP: <b>{ip}</b>")
-            except requests.RequestException:
-                self._log_chat("assistant", "Не удалось получить IP. Проверьте подключение к интернету.")
+            self._run_net(lambda: requests.get("https://api.ipify.org", timeout=5).text)
+            self._net_worker.finished.connect(self._on_ip_done)
 
         elif key == "ping":
+            if self._net_worker is not None:
+                self._log_chat("assistant", "Подожди, выполняется предыдущая сетевая команда.")
+                return
             parts = raw_text.split()
             host = parts[1] if len(parts) > 1 else "8.8.8.8"
-
-            self._log_chat("assistant", f"Пингую {host}...")
-            try:
-                result = subprocess.run(
-                    ["ping", "-n", "4", host],
-                    capture_output=True, text=True, encoding="cp866", timeout=5
-                )
-                output = result.stdout
-
-                if "100% потерь" in output or "100% loss" in output or "не найден" in output:
-                    self._log_chat("assistant", f"Узел {host} недоступен (100% потерь).")
-                else:
-                    times = re.findall(r"([0-9]+)(?:ms|мс)", output)
-                    if times:
-                        times = [int(t) for t in times]
-                        avg = sum(times) // len(times)
-                        mn = min(times)
-                        mx = max(times)
-                        self._log_chat("assistant", f"Пинг {host}:<br>Мин: {mn}ms, Сред: {avg}ms, Макс: {mx}ms")
-                    else:
-                        self._log_chat("assistant", f"Пинг {host} завершен, но не удалось распарсить время.<br><pre>{output}</pre>")
-            except subprocess.TimeoutExpired:
-                self._log_chat("assistant", f"Превышено время ожидания ответа от {host}.")
-            except Exception as e:
-                self._log_chat("assistant", f"Ошибка выполнения пинга: {e}")
+            self._log_chat("assistant", f"Пингую {html.escape(host)}...")
+            self._run_net(lambda: self._ping_host(host))
+            self._net_worker.finished.connect(self._on_ping_done)
 
         elif key == "браузер":
             open_url("https://www.google.com", self.settings.browser_path)
@@ -1147,7 +1446,7 @@ class MainWindow(QMainWindow):
 
             note = Note(title or "Без названия", body)
             self.notes_manager.add_note(note)
-            msg = f"Заметка сохранена: «{note.title}»"
+            msg = f"Заметка сохранена: «{html.escape(note.title)}»"
             if body:
                 msg += f" ({len(body)} симв.)"
             self._log_chat("assistant", msg)
@@ -1161,7 +1460,62 @@ class MainWindow(QMainWindow):
         elif key == "помощь":
             self._show_help()
 
+    def _run_net(self, fn):
+        self._net_worker = _CommandWorker(fn, self)
+        self._net_worker.start()
+
+    def _finish_net(self):
+        if self._net_worker is not None:
+            self._net_worker.deleteLater()
+            self._net_worker = None
+
+    def _on_ip_done(self, result):
+        self._finish_net()
+        if result["ok"]:
+            self._log_chat("assistant", f"Ваш внешний IP: <b>{html.escape(str(result['data']))}</b>")
+        else:
+            self._log_chat("assistant", "Не удалось получить IP. Проверьте подключение к интернету.")
+
+    def _ping_host(self, host):
+        result = subprocess.run(
+            ["ping", "-n", "4", host],
+            capture_output=True, text=True, encoding="cp866", errors="replace", timeout=15
+        )
+        return host, result.stdout or ""
+
+    def _on_ping_done(self, result):
+        self._finish_net()
+        if not result["ok"]:
+            self._log_chat("assistant", f"Ошибка выполнения пинга: {html.escape(str(result['error']))}")
+            return
+
+        host, output = result["data"]
+
+        if "100% потерь" in output or "100% loss" in output or "не найден" in output:
+            self._log_chat("assistant", f"Узел {html.escape(host)} недоступен (100% потерь).")
+            return
+
+        times = re.findall(r"([0-9]+)(?:ms|мс)", output)
+        if times:
+            values = [int(t) for t in times]
+            avg = sum(values) // len(values)
+            self._log_chat(
+                "assistant",
+                f"Пинг {html.escape(host)}:<br>Мин: {min(values)}ms, Сред: {avg}ms, Макс: {max(values)}ms",
+            )
+        else:
+            self._log_chat(
+                "assistant",
+                f"Пинг {html.escape(host)} завершен, но не удалось распарсить время.<br><pre>{html.escape(output)}</pre>",
+            )
+
     def _show_help(self):
+        ai_on = self._make_llm_client() is not None
+        ai_line = (
+            "AI-ассистент включен: всё, что не похоже на команду, Пип отвечает как чат (Enter во время ответа — прервать).\n"
+            if ai_on else
+            "AI-ассистент выключен: включите его в настройках, чтобы задавать вопросы в чат.\n"
+        )
         QMessageBox.information(
             self, "Помощь",
             "Введите команду в поле ввода.\n"
@@ -1170,6 +1524,9 @@ class MainWindow(QMainWindow):
             "Напоминания: «напомни через 20 минут купить хлеб», «напомни в 19:30 позвонить».\n"
             "Таймер: «таймер 5 минут», «таймер 30 секунд».\n"
             "Отмена: «таймер отмена», «напомни отмена», «напомни отмена 2» (по номеру из списка).\n"
+            "Спотлайт: мини-строка у курсора — ищет команды, заметки и буфер обмена.\n"
+            "Выделенный текст: хоткей захватывает выделенное и предлагает перевод и AI-действия.\n"
+            + ai_line +
             "Также можно создавать свои команды во вкладке «Команды»."
         )
 
@@ -1207,7 +1564,7 @@ class MainWindow(QMainWindow):
             label = "Таймер" if kind == "timer" else "Напоминание"
         entry = self.reminder_manager.add(due, label, kind)
         title = "Таймер на" if kind == "timer" else "Напомню"
-        self._log_chat("assistant", f"{title} {due.strftime('%H:%M %d.%m')}: {entry['label']}")
+        self._log_chat("assistant", f"{title} {due.strftime('%H:%M %d.%m')}: {html.escape(entry['label'])}")
         logging.info(f"{'Таймер' if kind == 'timer' else 'Напоминание'} установлено: {label} на {due}")
 
     def _cancel_reminders(self, kind, rest):
@@ -1220,7 +1577,7 @@ class MainWindow(QMainWindow):
             if 1 <= idx <= len(items):
                 entry = items[idx - 1]
                 self.reminder_manager.cancel(rid=entry["id"])
-                self._log_chat("assistant", f"Отменил: «{entry['label']}» ({entry['due'].strftime('%H:%M %d.%m')})")
+                self._log_chat("assistant", f"Отменил: «{html.escape(entry['label'])}» ({entry['due'].strftime('%H:%M %d.%m')})")
                 logging.info(f"Напоминание отменено: {entry['label']}")
             else:
                 self._log_chat("assistant", f"В списке нет напоминания №{idx}. «напомни список» покажет нумерацию.")
@@ -1239,7 +1596,7 @@ class MainWindow(QMainWindow):
         what = ("таймер", "таймера", "таймеров") if kind == "timer" else ("напоминание", "напоминания", "напоминаний")
         if removed:
             word = self._plural_ru(len(removed), *what)
-            lines = "<br>".join(f"• «{r['label']}» ({r['due'].strftime('%H:%M %d.%m')})" for r in removed)
+            lines = "<br>".join(f"• «{html.escape(r['label'])}» ({r['due'].strftime('%H:%M %d.%m')})" for r in removed)
             self._log_chat("assistant", f"Отменил {len(removed)} {word}:<br>{lines}")
             logging.info(f"Отменены {what[2]}: {len(removed)} шт.")
         else:
@@ -1261,7 +1618,7 @@ class MainWindow(QMainWindow):
         if not items:
             self._log_chat("assistant", "Активных напоминаний нет. Пример: «напомни через 10 минут сделать перерыв»")
             return
-        lines = [f"{i}. {r['label']} — {r['due'].strftime('%H:%M %d.%m')} ({r['kind']})" for i, r in enumerate(items, 1)]
+        lines = [f"{i}. {html.escape(r['label'])} — {r['due'].strftime('%H:%M %d.%m')} ({r['kind']})" for i, r in enumerate(items, 1)]
         self._log_chat(
             "assistant",
             "Активные напоминания:<br>" + "<br>".join(lines)
@@ -1307,7 +1664,7 @@ class MainWindow(QMainWindow):
     def _restore_from_circle(self):
         if self._floating:
             self._floating.hide()
-        self._jarvis_bg.start()
+        self._jarvis_bg.set_blurred(self._last_page_index != PAGE_MAIN)
         self._ensure_page(self._last_page_index)
         self._stack.setCurrentIndex(self._last_page_index)
         self.showNormal()
@@ -1397,7 +1754,7 @@ class MainWindow(QMainWindow):
         combo = self._hotkey_edit.keySequence().toString()
         if not combo or combo == self.settings.hotkey:
             return
-        ok, err = self._hotkey.register(combo)
+        ok, err = self._hotkey.register(HOTKEY_ID_MAIN, combo)
         if ok:
             self.settings.hotkey = combo
             self._status.setText(f"Горячая клавиша: {combo}")
@@ -1426,6 +1783,62 @@ class MainWindow(QMainWindow):
     def _reset_spotlight_hotkey(self):
         self._spotlight_edit.setKeySequence(QKeySequence("Ctrl+Alt+K"))
         self._on_spotlight_hotkey_changed()
+
+    def _on_selection_hotkey_changed(self):
+        combo = self._selection_hotkey_edit.keySequence().toString()
+        if not combo or combo == self.settings.selection_hotkey:
+            return
+        ok, err = self._hotkey.register(HOTKEY_ID_SELECTION, combo)
+        if ok:
+            self.settings.selection_hotkey = combo
+            self._status.setText(f"Выделенный текст: {combo}")
+            logging.info(f"Хоткей выделенного текста изменен: {combo}")
+        else:
+            QMessageBox.warning(self, "Выделенный текст", f"Не удалось назначить «{combo}»:\n{err}")
+            self._selection_hotkey_edit.setKeySequence(QKeySequence(self.settings.selection_hotkey))
+
+    def _reset_selection_hotkey(self):
+        self._selection_hotkey_edit.setKeySequence(QKeySequence("Ctrl+Alt+T"))
+        self._on_selection_hotkey_changed()
+
+    def _on_ai_toggled(self, checked):
+        self.settings.ai_enabled = checked
+        self._refresh_ai_dependent_ui()
+        logging.info(f"AI-ассистент: {'вкл' if checked else 'выкл'}")
+
+    def _on_ai_url_changed(self):
+        url = self._ai_url_edit.text().strip().rstrip("/")
+        self.settings.ai_base_url = url or "https://api.openai.com/v1"
+
+    def _on_ai_model_changed(self):
+        self.settings.ai_model = self._ai_model_edit.text().strip()
+
+    def _on_ai_key_save(self):
+        key = self._ai_key_edit.text().strip()
+        if not key:
+            QMessageBox.information(self, "API-ключ", "Вставьте ключ в поле перед сохранением.")
+            return
+        if save_secret("ai_api_key", key):
+            self._ai_key_edit.clear()
+            self._ai_key_edit.setPlaceholderText("Ключ сохранён в Credential Manager")
+            self._status.setText("API-ключ сохранён")
+            logging.info("API-ключ сохранён в Credential Manager")
+        else:
+            QMessageBox.warning(self, "API-ключ", "Не удалось сохранить ключ в Credential Manager.")
+        self._refresh_ai_dependent_ui()
+
+    def _on_ai_key_delete(self):
+        delete_secret("ai_api_key")
+        self._ai_key_edit.setPlaceholderText("Вставьте API-ключ")
+        self._status.setText("API-ключ удалён")
+        logging.info("API-ключ удалён из Credential Manager")
+        self._refresh_ai_dependent_ui()
+
+    def _refresh_ai_dependent_ui(self):
+        if hasattr(self, "_input") and shiboken6.isValid(self._input):
+            self._input.setPlaceholderText(self._input_placeholder_text())
+        if hasattr(self, "_selection_popup") and shiboken6.isValid(self._selection_popup):
+            self._selection_popup.set_llm_client(self._make_llm_client())
 
     def _on_accent_pick(self):
         initial = QColor(self.settings.accent_color) if self.settings.accent_color else QColor("#2b6cb0")
@@ -1509,6 +1922,7 @@ class MainWindow(QMainWindow):
         self.settings.window_opacity = float(s.get("window_opacity", self.settings.window_opacity))
         self.settings.circle_opacity = float(s.get("circle_opacity", self.settings.circle_opacity))
         self.settings.circle_theme = s.get("circle_theme", self.settings.circle_theme)
+        self.settings.accent_color = s.get("accent_color", "")
         self.settings.browser_path = s.get("browser_path", "")
         self.settings.developer_mode = bool(s.get("developer_mode", False))
         self.settings.always_on_top = bool(s.get("always_on_top", False))
@@ -1538,6 +1952,7 @@ class MainWindow(QMainWindow):
         self._sync_settings_widgets()
         if hasattr(self, "_quick_layout"):
             self._refresh_quick_commands()
+        self._apply_theme()
         self._apply_opacity(self.settings.window_opacity)
         self._status.setText("Настройки импортированы")
         logging.info(f"Импорт настроек и команд из {path}")
@@ -1552,6 +1967,11 @@ class MainWindow(QMainWindow):
         self._browser_path_edit.setText(self.settings.browser_path)
         self._hotkey_edit.setKeySequence(QKeySequence(self.settings.hotkey))
         self._spotlight_edit.setKeySequence(QKeySequence(self.settings.spotlight_hotkey))
+        self._selection_hotkey_edit.setKeySequence(QKeySequence(self.settings.selection_hotkey))
+        self._ai_check.setChecked(self.settings.ai_enabled)
+        self._ai_url_edit.setText(self.settings.ai_base_url)
+        self._ai_model_edit.setText(self.settings.ai_model)
+        self._ai_key_edit.setPlaceholderText("Ключ сохранён в Credential Manager" if has_secret("ai_api_key") else "Вставьте API-ключ")
         self._autostart_check.setChecked(autostart_mod.is_autostart_enabled())
         self._updates_check.setChecked(self.settings.check_updates)
         self._dev_mode_check.setChecked(self.settings.developer_mode)
@@ -1586,6 +2006,7 @@ class MainWindow(QMainWindow):
 
         notes = info.get("notes", "")
         url = info.get("file", "")
+        expected_sha = str(info.get("sha256", "") or "")
 
         box = QMessageBox(self)
         box.setWindowTitle("Доступно обновление")
@@ -1601,21 +2022,25 @@ class MainWindow(QMainWindow):
 
         clicked = box.clickedButton()
         if clicked is auto_btn:
-            self._download_update(url)
+            self._download_update(url, expected_sha)
         elif clicked is page_btn:
             open_url(updater.SITE_URL, self.settings.browser_path)
 
-    def _download_update(self, url):
+    def _download_update(self, url, expected_sha=""):
         progress = QProgressDialog("Скачиваю обновление...", None, 0, 0, self)
         progress.setWindowTitle("Обновление")
         progress.setWindowModality(Qt.WindowModality.WindowModal)
         progress.setMinimumDuration(0)
         progress.show()
 
-        self._update_downloader = updater.UpdateDownloader(self)
+        self._update_downloader = updater.UpdateDownloader(expected_sha, self)
 
         def on_done(path):
             progress.close()
+            if expected_sha:
+                logging.info("SHA-256 архива обновления совпал")
+            else:
+                logging.warning("SHA-256 в releases.json отсутствует, целостность архива не проверена")
             if updater.apply_update(path, get_app_dir(), os.getpid()):
                 self._full_exit()
             else:
@@ -1720,7 +2145,7 @@ class MainWindow(QMainWindow):
             right.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
             for act in cmd.actions:
                 act_type = act.get("type")
-                val = act.get("value")
+                val = str(act.get("value", ""))
                 if len(val) > 40:
                     val = val[:37] + "..."
                 lbl_act = QLabel(f"[{act_type}] {val}")

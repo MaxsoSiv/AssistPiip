@@ -111,7 +111,9 @@ class ClipboardManager(QObject):
 
             name = f"{uuid.uuid4().hex}.png"
             path = os.path.join(self._dir, name)
-            image.save(path, "PNG")
+            if not image.save(path, "PNG"):
+                logging.error("Не удалось сохранить изображение из буфера обмена")
+                return
             self._entries.append(ClipboardEntry("image", path))
 
         elif mime.hasText():

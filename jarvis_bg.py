@@ -58,8 +58,11 @@ class JarvisBackground(QWidget):
         if blurred:
             self._blur_effect.setBlurRadius(40)
             self._blur_effect.setEnabled(True)
+            self._timer.stop()
         else:
             self._blur_effect.setEnabled(False)
+            if not self._timer.isActive():
+                self._timer.start(33)
         self.update()
 
     def start(self):

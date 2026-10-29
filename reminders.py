@@ -84,14 +84,24 @@ class ReminderManager(QObject):
         try:
             with open(self._file, "r", encoding="utf-8") as f:
                 raw = json.load(f)
-            now = datetime.now()
-            for item in raw:
-                due = datetime.fromisoformat(item["due"])
-                if due <= now:
-                    continue
-                self._arm(item["id"], due, item["label"], item.get("kind", "reminder"))
-        except (json.JSONDecodeError, KeyError, ValueError, OSError) as e:
+        except (json.JSONDecodeError, OSError) as e:
             logging.error(f"Файл reminders.json поврежден: {e}")
+            return
+        now = datetime.now()
+        for item in raw:
+            try:
+                rid = item["id"]
+                due = datetime.fromisoformat(item["due"])
+                label = item["label"]
+                kind = item.get("kind", "reminder")
+            except (KeyError, TypeError, ValueError):
+                logging.warning("Поврежденная запись в reminders.json пропущена")
+                continue
+            if due <= now:
+                if now - due > timedelta(hours=24):
+                    continue
+                due = now + timedelta(seconds=5)
+            self._arm(rid, due, label, kind)
 
     def _save(self):
         try:
@@ -103,15 +113,30 @@ class ReminderManager(QObject):
         except OSError as e:
             logging.error(f"Ошибка сохранения напоминаний: {e}")
 
+    MAX_DELAY_MS = 2**31 - 1
+
     def _arm(self, rid, due, label, kind):
         entry = {"id": rid, "due": due, "label": label, "kind": kind}
         self._reminders.append(entry)
-        delay = max(int((due - datetime.now()).total_seconds() * 1000), 0)
         timer = QTimer(self)
         timer.setSingleShot(True)
-        timer.timeout.connect(lambda r=entry: self._fire(r))
-        timer.start(min(delay, 2**31 - 1))
+        timer.timeout.connect(lambda r=entry: self._tick(r))
         self._timers[rid] = timer
+        self._start_timer(timer, entry)
+
+    def _start_timer(self, timer, entry):
+        delay = max(int((entry["due"] - datetime.now()).total_seconds() * 1000), 0)
+        timer.start(min(delay, self.MAX_DELAY_MS))
+
+    def _tick(self, entry):
+        if entry not in self._reminders:
+            return
+        if entry["due"] > datetime.now():
+            timer = self._timers.get(entry["id"])
+            if timer:
+                self._start_timer(timer, entry)
+            return
+        self._fire(entry)
 
     def add(self, due: datetime, label: str, kind: str = "reminder") -> dict:
         entry = {"id": uuid.uuid4().hex, "due": due, "label": label, "kind": kind}

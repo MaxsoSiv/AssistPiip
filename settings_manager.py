@@ -133,3 +133,35 @@ class SettingsManager(QObject):
     @quick_commands.setter
     def quick_commands(self, value: list[str]):
         self.set("quick_commands", value)
+
+    @property
+    def ai_enabled(self) -> bool:
+        return self.get("ai_enabled", False, type=bool)
+
+    @ai_enabled.setter
+    def ai_enabled(self, value: bool):
+        self.set("ai_enabled", value)
+
+    @property
+    def ai_base_url(self) -> str:
+        return self.get("ai_base_url", "https://api.openai.com/v1")
+
+    @ai_base_url.setter
+    def ai_base_url(self, value: str):
+        self.set("ai_base_url", value)
+
+    @property
+    def ai_model(self) -> str:
+        return self.get("ai_model", "")
+
+    @ai_model.setter
+    def ai_model(self, value: str):
+        self.set("ai_model", value)
+
+    @property
+    def selection_hotkey(self) -> str:
+        return self.get("selection_hotkey", "Ctrl+Alt+T")
+
+    @selection_hotkey.setter
+    def selection_hotkey(self, value: str):
+        self.set("selection_hotkey", value)

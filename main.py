@@ -59,6 +59,22 @@ def main():
         show_action.triggered.connect(window._restore_from_circle)
         menu.addAction(show_action)
 
+        note_action = QAction("Новая заметка")
+        note_action.triggered.connect(window.tray_new_note)
+        menu.addAction(note_action)
+
+        remind_action = QAction("Напомнить...")
+        remind_action.triggered.connect(window.tray_reminder)
+        menu.addAction(remind_action)
+
+        recent = [e for e in window.clipboard_manager.all_entries() if e.kind == "text"][:3]
+        if recent:
+            buffer_menu = menu.addMenu("Буфер обмена")
+            for entry in recent:
+                preview = entry.content[:40].replace("\n", " ")
+                act = buffer_menu.addAction(preview)
+                act.triggered.connect(lambda checked=False, e=entry: window.tray_clipboard_copy(e))
+
         quit_action = QAction("Выход")
         quit_action.triggered.connect(window._full_exit)
         menu.addAction(quit_action)

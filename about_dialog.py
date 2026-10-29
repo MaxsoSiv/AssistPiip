@@ -77,7 +77,7 @@ class AboutDialog(QDialog):
         about_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
 
         lbl_title = QLabel("AssistPiip")
-        lbl_title.setStyleSheet("font-size: 28px; font-weight: bold; color: #2b6cb0;")
+        lbl_title.setStyleSheet("font-size: 28px; font-weight: bold;")
 
         lbl_ver = QLabel(f"Версия: {APP_VERSION} (Beta)")
         lbl_ver.setStyleSheet("font-size: 14px; color: #888;")

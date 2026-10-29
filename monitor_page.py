@@ -1,11 +1,14 @@
+import threading
+
 import psutil
+import shiboken6
 import webbrowser
 from urllib.parse import quote
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QTableWidget,
     QTableWidgetItem, QHeaderView, QMessageBox, QAbstractItemView, QLabel
 )
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QObject, Signal
 from PySide6.QtGui import QColor
 
 PROTECTED_PROCESSES = {
@@ -27,9 +30,58 @@ HELP_TEXT = """
 Если вы не уверены в процессе, нажмите кнопку «Поиск», чтобы узнать о нём в интернете.
 """
 
+class _ScanWorker(QObject):
+    finished = Signal(list)
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+
+    def start(self):
+        threading.Thread(target=self._run, daemon=True).start()
+
+    def _run(self):
+        try:
+            result = scan_processes()
+        except Exception:
+            result = []
+        if shiboken6.isValid(self):
+            self.finished.emit(result)
+
+
+def scan_processes() -> list:
+    processes = []
+    for proc in psutil.process_iter(['pid', 'name', 'memory_info']):
+        try:
+            pid = proc.info['pid']
+            name = proc.info['name']
+            mem_info = proc.info['memory_info']
+            if not name or mem_info is None:
+                continue
+            if pid <= 4 or name.lower() in PROTECTED_PROCESSES:
+                continue
+
+            try:
+                exe_path = proc.exe()
+            except (psutil.AccessDenied, psutil.NoSuchProcess):
+                exe_path = ""
+
+            processes.append({
+                'pid': pid,
+                'name': name,
+                'mem': mem_info.rss / (1024 * 1024),
+                'path': exe_path
+            })
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            pass
+
+    processes.sort(key=lambda x: x['mem'], reverse=True)
+    return processes
+
+
 class MonitorPage(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
+        self._scan_worker = None
         self._setup_ui()
 
     def _setup_ui(self):
@@ -103,34 +155,20 @@ class MonitorPage(QWidget):
         self.refresh_processes()
 
     def refresh_processes(self):
+        if self._scan_worker is not None:
+            return
+        self.btn_refresh.setEnabled(False)
         self.table.setRowCount(0)
 
-        processes = []
-        for proc in psutil.process_iter(['pid', 'name', 'memory_info']):
-            try:
-                pid = proc.info['pid']
-                name = proc.info['name']
-                mem = proc.info['memory_info'].rss / (1024 * 1024)
+        self._scan_worker = _ScanWorker(self)
+        self._scan_worker.finished.connect(self._on_scan_done)
+        self._scan_worker.start()
 
-                if pid <= 4 or name.lower() in PROTECTED_PROCESSES:
-                    continue
-
-                try:
-                    exe_path = proc.exe()
-                except (psutil.AccessDenied, psutil.NoSuchProcess):
-                    exe_path = ""
-
-                processes.append({
-                    'pid': pid,
-                    'name': name,
-                    'mem': mem,
-                    'path': exe_path
-                })
-            except (psutil.NoSuchProcess, psutil.AccessDenied):
-                pass
-
-        processes.sort(key=lambda x: x['mem'], reverse=True)
-
+    def _on_scan_done(self, processes):
+        if not shiboken6.isValid(self):
+            return
+        self._scan_worker = None
+        self.btn_refresh.setEnabled(True)
         for p in processes[:50]:
             self._add_process_row(p)
 
